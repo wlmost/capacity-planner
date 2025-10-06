@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QTableWidget, QTableWidgetItem, QPushButton,
     QDateEdit, QHeaderView, QGroupBox, QFormLayout,
-    QMessageBox, QFileDialog, QProgressBar
+    QMessageBox, QFileDialog, QProgressBar, QTabWidget
 )
 from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QFont, QColor
@@ -15,6 +15,7 @@ from PySide6.QtGui import QFont, QColor
 from ..services.analytics_service import AnalyticsService
 from ..repositories.worker_repository import WorkerRepository
 from ..models.worker import Worker
+from .utilization_chart_widget import UtilizationChartWidget
 
 
 class AnalyticsWidget(QWidget):
@@ -65,10 +66,15 @@ class AnalyticsWidget(QWidget):
         self._refresh_button.clicked.connect(self._refresh_data)
         header_layout.addWidget(self._refresh_button)
         
-        # Export Button
-        self._export_button = QPushButton("📊 Export CSV")
-        self._export_button.clicked.connect(self._export_to_csv)
-        header_layout.addWidget(self._export_button)
+        # Export CSV Button
+        self._export_csv_button = QPushButton("📊 Export CSV")
+        self._export_csv_button.clicked.connect(self._export_to_csv)
+        header_layout.addWidget(self._export_csv_button)
+        
+        # Export Excel Button
+        self._export_excel_button = QPushButton("📗 Export Excel")
+        self._export_excel_button.clicked.connect(self._export_to_excel)
+        header_layout.addWidget(self._export_excel_button)
         
         layout.addLayout(header_layout)
         
@@ -100,9 +106,12 @@ class AnalyticsWidget(QWidget):
         stats_group = self._create_statistics_group()
         layout.addWidget(stats_group)
         
-        # Team Overview Table
-        table_group = QGroupBox("Team-Übersicht")
-        table_layout = QVBoxLayout(table_group)
+        # Tab Widget für Tabelle und Chart
+        self._content_tabs = QTabWidget()
+        
+        # Tab 1: Team Overview Table
+        table_widget = QWidget()
+        table_layout = QVBoxLayout(table_widget)
         
         self._team_table = QTableWidget()
         self._team_table.setColumnCount(7)
@@ -115,7 +124,13 @@ class AnalyticsWidget(QWidget):
         self._team_table.setAlternatingRowColors(True)
         table_layout.addWidget(self._team_table)
         
-        layout.addWidget(table_group)
+        self._content_tabs.addTab(table_widget, "📊 Tabelle")
+        
+        # Tab 2: Chart
+        self._chart_widget = UtilizationChartWidget()
+        self._content_tabs.addTab(self._chart_widget, "📈 Diagramm")
+        
+        layout.addWidget(self._content_tabs)
         
         # Status Label
         self._status_label = QLabel()
@@ -237,7 +252,7 @@ class AnalyticsWidget(QWidget):
             self._avg_utilization_label.setStyleSheet("font-weight: bold; font-size: 14px; color: red;")
     
     def _update_table(self):
-        """Aktualisiert Team-Tabelle"""
+        """Aktualisiert Team-Tabelle und Chart"""
         self._team_table.setRowCount(0)
         
         for worker in self._workers:
@@ -285,6 +300,9 @@ class AnalyticsWidget(QWidget):
             # Status
             status_item = self._get_status_item(util_percent)
             self._team_table.setItem(row, 6, status_item)
+        
+        # Chart aktualisieren
+        self._chart_widget.update_chart(self._workers, self._utilization_data)
     
     def _get_status_item(self, utilization: float) -> QTableWidgetItem:
         """Erstellt Status-Item mit Farbkodierung"""
@@ -384,6 +402,152 @@ class AnalyticsWidget(QWidget):
             
         except Exception as e:
             self._show_error(f"Fehler beim Exportieren: {str(e)}")
+    
+    def _export_to_excel(self):
+        """Exportiert Daten als Excel mit Formatierung"""
+        if not self._utilization_data:
+            QMessageBox.warning(
+                self, 
+                "Keine Daten", 
+                "Es sind keine Daten zum Exportieren vorhanden."
+            )
+            return
+        
+        # Datei-Dialog
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export als Excel",
+            f"analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            "Excel Files (*.xlsx)"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Analytics"
+            
+            # Header-Zeile mit Formatierung
+            headers = ['Worker', 'Team', 'Geplant (h)', 'Gearbeitet (h)', 
+                      'Differenz (h)', 'Auslastung (%)', 'Status']
+            
+            for col_num, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col_num, value=header)
+                cell.font = Font(bold=True, size=12, color="FFFFFF")
+                cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+            
+            # Daten-Zeilen
+            row_num = 2
+            for worker in self._workers:
+                if worker.id not in self._utilization_data:
+                    continue
+                
+                data = self._utilization_data[worker.id]
+                diff = data['hours_worked'] - data['hours_planned']
+                util = data['utilization_percent']
+                
+                if util < 80:
+                    status = "⚠️ Unter"
+                    status_color = "FFA500"  # Orange
+                elif util <= 110:
+                    status = "✓ Optimal"
+                    status_color = "32CD32"  # Green
+                else:
+                    status = "❗ Über"
+                    status_color = "FF4500"  # Red
+                
+                row_data = [
+                    worker.name,
+                    worker.team or "-",
+                    data['hours_planned'],
+                    data['hours_worked'],
+                    diff,
+                    util,
+                    status
+                ]
+                
+                for col_num, value in enumerate(row_data, 1):
+                    cell = ws.cell(row=row_num, column=col_num, value=value)
+                    cell.alignment = Alignment(horizontal='center' if col_num > 2 else 'left')
+                    cell.border = Border(
+                        left=Side(style='thin'),
+                        right=Side(style='thin'),
+                        top=Side(style='thin'),
+                        bottom=Side(style='thin')
+                    )
+                    
+                    # Status-Spalte farblich hervorheben
+                    if col_num == 7:
+                        cell.font = Font(bold=True, color="FFFFFF")
+                        cell.fill = PatternFill(start_color=status_color, end_color=status_color, fill_type="solid")
+                    
+                    # Differenz-Spalte farblich hervorheben
+                    if col_num == 5:
+                        if diff < 0:
+                            cell.font = Font(color="FFA500")  # Orange
+                        elif diff > 0:
+                            cell.font = Font(color="0000FF")  # Blue
+                
+                row_num += 1
+            
+            # Zusammenfassung (mit Abstand)
+            row_num += 2
+            summary_row = row_num
+            
+            summary_cell = ws.cell(row=summary_row, column=1, value="Zusammenfassung")
+            summary_cell.font = Font(bold=True, size=14, color="FFFFFF")
+            summary_cell.fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+            ws.merge_cells(start_row=summary_row, start_column=1, end_row=summary_row, end_column=2)
+            
+            total_planned = sum(d['hours_planned'] for d in self._utilization_data.values())
+            total_worked = sum(d['hours_worked'] for d in self._utilization_data.values())
+            avg_util = sum(d['utilization_percent'] for d in self._utilization_data.values()) / len(self._utilization_data)
+            
+            summary_data = [
+                ('Aktive Workers', len(self._workers)),
+                ('Gesamt Geplant (h)', f"{total_planned:.1f}"),
+                ('Gesamt Gearbeitet (h)', f"{total_worked:.1f}"),
+                ('Ø Auslastung (%)', f"{avg_util:.1f}")
+            ]
+            
+            for i, (label, value) in enumerate(summary_data, 1):
+                label_cell = ws.cell(row=summary_row + i, column=1, value=label)
+                label_cell.font = Font(bold=True)
+                
+                value_cell = ws.cell(row=summary_row + i, column=2, value=value)
+                value_cell.alignment = Alignment(horizontal='right')
+                value_cell.font = Font(bold=True)
+            
+            # Spaltenbreiten anpassen
+            ws.column_dimensions['A'].width = 20
+            ws.column_dimensions['B'].width = 15
+            ws.column_dimensions['C'].width = 15
+            ws.column_dimensions['D'].width = 18
+            ws.column_dimensions['E'].width = 15
+            ws.column_dimensions['F'].width = 18
+            ws.column_dimensions['G'].width = 15
+            
+            # Speichern
+            wb.save(file_path)
+            
+            self._show_success(f"Excel-Export erfolgreich: {file_path}")
+            
+        except ImportError:
+            self._show_error("openpyxl nicht installiert. Bitte 'pip install openpyxl' ausführen.")
+        except Exception as e:
+            self._show_error(f"Fehler beim Excel-Export: {str(e)}")
     
     def _show_success(self, message: str):
         """Zeigt Erfolgs-Nachricht"""

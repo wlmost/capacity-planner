@@ -91,8 +91,10 @@ class TestAnalyticsWidgetInitialization:
         assert analytics_widget._start_date_filter is not None
         assert analytics_widget._end_date_filter is not None
         assert analytics_widget._refresh_button is not None
-        assert analytics_widget._export_button is not None
+        assert analytics_widget._export_csv_button is not None
+        assert analytics_widget._export_excel_button is not None
         assert analytics_widget._status_label is not None
+        assert analytics_widget._chart_widget is not None
     
     def test_statistics_labels_exist(self, analytics_widget):
         """Test: Statistik-Labels existieren"""
