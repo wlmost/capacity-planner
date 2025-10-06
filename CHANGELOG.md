@@ -10,10 +10,56 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unreleased]
 
 ### 🚧 In Arbeit
-- Advanced Analytics (Charts mit matplotlib/pyqtgraph)
-- Worker Detail-Dialog mit Historie
+- Worker Detail-Dialog mit Historie & Trends
 - Erweiterte Filter (Team, Status, Sortierung)
-- Excel-Export
+- Weitere Chart-Typen (Linien, Torten, Heatmap)
+- PDF-Export
+
+---
+
+## [phase4-part1-complete] - 2025-10-06
+
+### ✅ Hinzugefügt (Phase 4 Teil 1: Charts & Excel-Export)
+- **UtilizationChartWidget**: Visualisierung mit matplotlib
+  - Horizontales Balkendiagramm für Worker-Auslastung
+  - Farbkodierung (< 80% orange, 80-110% grün, > 110% rot)
+  - Sortierung nach Auslastung (höchste zuerst)
+  - Referenzlinien bei 80% und 110% Schwellwerten
+  - Werte in Balken angezeigt
+  - Grid für bessere Orientierung
+  - Empty-State für fehlende Daten
+  - Responsive Design mit QSizePolicy.Expanding
+
+- **AnalyticsWidget Erweiterungen**:
+  - Tab-Widget mit 2 Tabs: "📊 Tabelle" und "📈 Diagramm"
+  - Automatische Chart-Aktualisierung bei Daten-Refresh
+  - Excel-Export-Button "📗 Export Excel"
+  - CSV-Export-Button umbenannt zu "📊 Export CSV"
+
+- **Excel-Export mit openpyxl**:
+  - Professionelle Formatierung mit Farben und Borders
+  - Header mit blauem Hintergrund und weißer Schrift
+  - Status-Spalte farbkodiert (orange/grün/rot)
+  - Differenz-Spalte farbkodiert (negativ orange, positiv blau)
+  - Zusammenfassung mit separater Formatierung
+  - Automatische Spaltenbreiten
+  - Zeitstempel im Dateinamen
+
+### 📦 Dependencies
+- matplotlib 3.10.6 hinzugefügt
+- openpyxl 3.1.5 hinzugefügt
+- requirements.txt aktualisiert
+
+### 🧪 Tests
+- ✅ 73/73 Unit-Tests bestehen weiterhin (100%)
+- ✅ Coverage: analytics_widget.py 74%, utilization_chart_widget.py 97%
+- ✅ Gesamtprojekt: 33% Coverage (↑ von 32%)
+
+### 📂 Dateien
+- `src/views/utilization_chart_widget.py` (120 Zeilen) - NEU
+- `src/views/analytics_widget.py` (+150 Zeilen)
+- `tests/unit/views/test_analytics_widget.py` (Test-Anpassung)
+- `requirements.txt` (matplotlib, openpyxl)
 
 ---
 
