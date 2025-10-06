@@ -12,6 +12,7 @@ from PySide6.QtGui import QAction
 from .time_entry_widget import TimeEntryWidget
 from .worker_widget import WorkerWidget
 from .capacity_widget import CapacityWidget
+from .analytics_widget import AnalyticsWidget
 from ..viewmodels.time_entry_viewmodel import TimeEntryViewModel
 from ..viewmodels.worker_viewmodel import WorkerViewModel
 from ..viewmodels.capacity_viewmodel import CapacityViewModel
@@ -113,10 +114,12 @@ class MainWindow(QMainWindow):
         self.capacity_widget = CapacityWidget(self.capacity_viewmodel)
         self.tab_widget.addTab(self.capacity_widget, "Kapazitätsplanung")
         
-        # Tab 4: Analytics (noch Platzhalter)
-        tab4 = QLabel("Analytics\n(AnalyticsView kommt hier hin)")
-        tab4.setAlignment(Qt.AlignCenter)
-        self.tab_widget.addTab(tab4, "Analytics")
+        # Tab 4: Analytics (mit echtem Widget)
+        self.analytics_widget = AnalyticsWidget(
+            self.analytics_service, 
+            self.worker_repository
+        )
+        self.tab_widget.addTab(self.analytics_widget, "Analytics")
     
     def _setup_menu(self):
         """Erstellt Menu Bar"""
