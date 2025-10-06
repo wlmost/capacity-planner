@@ -10,9 +10,48 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unreleased]
 
 ### 🚧 In Arbeit
-- Analytics Dashboard (Team-Übersicht, Charts, Trends)
-- Unit-Tests für CapacityViewModel (0% Coverage)
-- Unit-Tests für AnalyticsService (0% Coverage)
+- Advanced Analytics (Charts mit matplotlib/pyqtgraph)
+- Worker Detail-Dialog mit Historie
+- Erweiterte Filter (Team, Status, Sortierung)
+- Excel-Export
+
+---
+
+## [phase3-complete] - 2025-10-06
+
+### ✅ Hinzugefügt (Phase 3: 100% abgeschlossen)
+- **AnalyticsWidget**: Vollständiges Analytics Dashboard
+  - 7-Spalten Team-Übersicht-Tabelle (Worker, Team, Geplant, Gearbeitet, Differenz, Auslastung %, Status)
+  - Farbkodierung für Status (⚠️ Unter < 80%, ✓ Optimal 80-110%, ❗ Über > 110%)
+  - Statistik-Zusammenfassung mit QProgressBar (Aktive Workers, Gesamt-Stunden, Ø Auslastung)
+  - Zeitraum-Filter mit QDateEdit + Kalender-Popup (Standard: letzte 30 Tage)
+  - CSV-Export mit Semikolon-Separator und Zeitstempel-Dateinamen
+  - Auto-Refresh bei Filter-Änderung
+  - Status-Feedback (Laden/Erfolg/Fehler)
+- **AnalyticsWidget Integration**:
+  - Als Tab 4 in MainWindow hinzugefügt
+  - Verwendet AnalyticsService + WorkerRepository
+  - `data_refreshed` Signal für externe Benachrichtigungen
+- **24 neue Unit-Tests** für AnalyticsWidget:
+  - TestAnalyticsWidgetInitialization (5 Tests)
+  - TestAnalyticsWidgetDataLoading (3 Tests)
+  - TestAnalyticsWidgetStatistics (3 Tests)
+  - TestAnalyticsWidgetTable (5 Tests)
+  - TestAnalyticsWidgetExport (3 Tests)
+  - TestAnalyticsWidgetSignals (2 Tests)
+  - TestAnalyticsWidgetErrorHandling (3 Tests)
+- **Dokumentation**:
+  - `docs/phase3_COMPLETE.md` (254 Zeilen)
+
+### 🧪 Tests
+- ✅ 73/73 Unit-Tests bestehen (100%)
+- ✅ Coverage: analytics_widget.py 97%
+- ✅ Gesamtprojekt: 32% Coverage (↑ von 20%)
+
+### 📦 Dateien
+- `src/views/analytics_widget.py` (414 Zeilen)
+- `tests/unit/views/test_analytics_widget.py` (341 Zeilen)
+- `src/views/main_window.py` (Analytics-Tab hinzugefügt)
 
 ---
 
