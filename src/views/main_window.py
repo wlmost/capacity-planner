@@ -117,7 +117,9 @@ class MainWindow(QMainWindow):
         # Tab 4: Analytics (mit echtem Widget)
         self.analytics_widget = AnalyticsWidget(
             self.analytics_service, 
-            self.worker_repository
+            self.worker_repository,
+            self.time_entry_repository,
+            self.capacity_repository
         )
         self.tab_widget.addTab(self.analytics_widget, "Analytics")
     

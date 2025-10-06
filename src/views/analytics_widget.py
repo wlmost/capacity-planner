@@ -7,15 +7,19 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QTableWidget, QTableWidgetItem, QPushButton,
     QDateEdit, QHeaderView, QGroupBox, QFormLayout,
-    QMessageBox, QFileDialog, QProgressBar, QTabWidget
+    QMessageBox, QFileDialog, QProgressBar, QTabWidget,
+    QComboBox
 )
 from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QFont, QColor
 
 from ..services.analytics_service import AnalyticsService
 from ..repositories.worker_repository import WorkerRepository
+from ..repositories.time_entry_repository import TimeEntryRepository
+from ..repositories.capacity_repository import CapacityRepository
 from ..models.worker import Worker
 from .utilization_chart_widget import UtilizationChartWidget
+from .worker_detail_dialog import WorkerDetailDialog
 
 
 class AnalyticsWidget(QWidget):
@@ -34,11 +38,15 @@ class AnalyticsWidget(QWidget):
     def __init__(
         self,
         analytics_service: AnalyticsService,
-        worker_repository: WorkerRepository
+        worker_repository: WorkerRepository,
+        time_entry_repository: TimeEntryRepository,
+        capacity_repository: CapacityRepository
     ):
         super().__init__()
         self._analytics_service = analytics_service
         self._worker_repository = worker_repository
+        self._time_entry_repository = time_entry_repository
+        self._capacity_repository = capacity_repository
         self._workers: List[Worker] = []
         self._utilization_data: Dict[int, Dict] = {}
         
@@ -98,6 +106,27 @@ class AnalyticsWidget(QWidget):
         self._end_date_filter.dateChanged.connect(self._on_filter_changed)
         filter_layout.addWidget(self._end_date_filter)
         
+        filter_layout.addSpacing(20)
+        
+        # Team-Filter
+        filter_layout.addWidget(QLabel("Team:"))
+        self._team_filter = QComboBox()
+        self._team_filter.addItem("Alle Teams", None)
+        self._team_filter.currentIndexChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self._team_filter)
+        
+        filter_layout.addSpacing(20)
+        
+        # Status-Filter
+        filter_layout.addWidget(QLabel("Status:"))
+        self._status_filter = QComboBox()
+        self._status_filter.addItem("Alle Status", None)
+        self._status_filter.addItem("⚠ Unter (< 80%)", "under")
+        self._status_filter.addItem("✓ Optimal (80-110%)", "optimal")
+        self._status_filter.addItem("❗ Über (> 110%)", "over")
+        self._status_filter.currentIndexChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self._status_filter)
+        
         filter_layout.addStretch()
         
         layout.addWidget(filter_group)
@@ -122,6 +151,8 @@ class AnalyticsWidget(QWidget):
         self._team_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self._team_table.setSelectionBehavior(QTableWidget.SelectRows)
         self._team_table.setAlternatingRowColors(True)
+        self._team_table.setSortingEnabled(True)
+        self._team_table.cellDoubleClicked.connect(self._on_worker_double_clicked)
         table_layout.addWidget(self._team_table)
         
         self._content_tabs.addTab(table_widget, "📊 Tabelle")
@@ -176,6 +207,12 @@ class AnalyticsWidget(QWidget):
         try:
             self._workers = self._worker_repository.find_all()
             self._workers = [w for w in self._workers if w.active]
+            
+            # Team-Filter populieren
+            teams = sorted(set(w.team for w in self._workers if w.team))
+            for team in teams:
+                self._team_filter.addItem(team, team)
+            
             self._refresh_data()
         except Exception as e:
             self._show_error(f"Fehler beim Laden der Daten: {str(e)}")
@@ -193,9 +230,12 @@ class AnalyticsWidget(QWidget):
             start_datetime = datetime(start_date.year, start_date.month, start_date.day)
             end_datetime = datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59)
             
+            # Filter anwenden
+            filtered_workers = self._apply_filters()
+            
             # Auslastung für jeden Worker berechnen
             self._utilization_data = {}
-            for worker in self._workers:
+            for worker in filtered_workers:
                 utilization = self._analytics_service.calculate_worker_utilization(
                     worker.id, start_datetime, end_datetime
                 )
@@ -303,6 +343,42 @@ class AnalyticsWidget(QWidget):
         
         # Chart aktualisieren
         self._chart_widget.update_chart(self._workers, self._utilization_data)
+    
+    def _apply_filters(self) -> List[Worker]:
+        """Wendet aktuelle Filter auf Worker-Liste an"""
+        filtered = list(self._workers)
+        
+        # Team-Filter
+        team_filter = self._team_filter.currentData()
+        if team_filter:
+            filtered = [w for w in filtered if w.team == team_filter]
+        
+        # Status-Filter (benötigt Utilization-Daten)
+        status_filter = self._status_filter.currentData()
+        if status_filter:
+            # Temporär alle Utilization-Daten berechnen für Filterung
+            temp_data = {}
+            start_date = self._start_date_filter.date().toPython()
+            end_date = self._end_date_filter.date().toPython()
+            start_datetime = datetime(start_date.year, start_date.month, start_date.day)
+            end_datetime = datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59)
+            
+            for worker in filtered:
+                utilization = self._analytics_service.calculate_worker_utilization(
+                    worker.id, start_datetime, end_datetime
+                )
+                if utilization:
+                    temp_data[worker.id] = utilization['utilization_percent']
+            
+            # Nach Status filtern
+            if status_filter == "under":
+                filtered = [w for w in filtered if temp_data.get(w.id, 0) < 80]
+            elif status_filter == "optimal":
+                filtered = [w for w in filtered if 80 <= temp_data.get(w.id, 0) <= 110]
+            elif status_filter == "over":
+                filtered = [w for w in filtered if temp_data.get(w.id, 0) > 110]
+        
+        return filtered
     
     def _get_status_item(self, utilization: float) -> QTableWidgetItem:
         """Erstellt Status-Item mit Farbkodierung"""
@@ -558,3 +634,20 @@ class AnalyticsWidget(QWidget):
         """Zeigt Fehler-Nachricht"""
         self._status_label.setText(f"✗ {message}")
         self._status_label.setStyleSheet("color: red; font-weight: bold;")
+    
+    def _on_worker_double_clicked(self, row: int, col: int):
+        """Handler für Doppelklick auf Worker-Zeile - öffnet Detail-Dialog"""
+        if row < 0 or row >= len(self._workers):
+            return
+        
+        worker = self._workers[row]
+        
+        # Detail-Dialog öffnen
+        dialog = WorkerDetailDialog(
+            worker=worker,
+            analytics_service=self._analytics_service,
+            time_entry_repository=self._time_entry_repository,
+            capacity_repository=self._capacity_repository,
+            parent=self
+        )
+        dialog.exec()

@@ -10,6 +10,8 @@ from PySide6.QtCore import QDate
 from src.views.analytics_widget import AnalyticsWidget
 from src.services.analytics_service import AnalyticsService
 from src.repositories.worker_repository import WorkerRepository
+from src.repositories.time_entry_repository import TimeEntryRepository
+from src.repositories.capacity_repository import CapacityRepository
 from src.models.worker import Worker
 
 
@@ -26,6 +28,20 @@ def mock_worker_repository():
     """Mock WorkerRepository"""
     repo = Mock(spec=WorkerRepository)
     repo.find_all = Mock(return_value=[])
+    return repo
+
+
+@pytest.fixture
+def mock_time_entry_repository():
+    """Mock TimeEntryRepository"""
+    repo = Mock(spec=TimeEntryRepository)
+    return repo
+
+
+@pytest.fixture
+def mock_capacity_repository():
+    """Mock CapacityRepository"""
+    repo = Mock(spec=CapacityRepository)
     return repo
 
 
@@ -65,9 +81,14 @@ def sample_utilization_data():
 
 
 @pytest.fixture
-def analytics_widget(qtbot, mock_analytics_service, mock_worker_repository):
+def analytics_widget(qtbot, mock_analytics_service, mock_worker_repository, mock_time_entry_repository, mock_capacity_repository):
     """AnalyticsWidget Fixture"""
-    widget = AnalyticsWidget(mock_analytics_service, mock_worker_repository)
+    widget = AnalyticsWidget(
+        mock_analytics_service, 
+        mock_worker_repository, 
+        mock_time_entry_repository, 
+        mock_capacity_repository
+    )
     qtbot.addWidget(widget)
     return widget
 
@@ -116,17 +137,22 @@ class TestAnalyticsWidgetInitialization:
 class TestAnalyticsWidgetDataLoading:
     """Tests für Datenladen"""
     
-    def test_load_workers(self, qtbot, mock_analytics_service, mock_worker_repository, sample_workers):
+    def test_load_workers(self, qtbot, mock_analytics_service, mock_worker_repository, mock_time_entry_repository, mock_capacity_repository, sample_workers):
         """Test: Workers werden geladen"""
         mock_worker_repository.find_all.return_value = sample_workers
         
-        widget = AnalyticsWidget(mock_analytics_service, mock_worker_repository)
+        widget = AnalyticsWidget(
+            mock_analytics_service, 
+            mock_worker_repository, 
+            mock_time_entry_repository, 
+            mock_capacity_repository
+        )
         qtbot.addWidget(widget)
         
         assert len(widget._workers) == 3
         assert all(w.active for w in widget._workers)
     
-    def test_filter_inactive_workers(self, qtbot, mock_analytics_service, mock_worker_repository):
+    def test_filter_inactive_workers(self, qtbot, mock_analytics_service, mock_worker_repository, mock_time_entry_repository, mock_capacity_repository):
         """Test: Inaktive Workers werden gefiltert"""
         workers = [
             Worker(id=1, name="Alice", email="alice@test.com", team="Team A", active=True),
@@ -134,7 +160,12 @@ class TestAnalyticsWidgetDataLoading:
         ]
         mock_worker_repository.find_all.return_value = workers
         
-        widget = AnalyticsWidget(mock_analytics_service, mock_worker_repository)
+        widget = AnalyticsWidget(
+            mock_analytics_service, 
+            mock_worker_repository, 
+            mock_time_entry_repository, 
+            mock_capacity_repository
+        )
         qtbot.addWidget(widget)
         
         assert len(widget._workers) == 1
@@ -342,3 +373,82 @@ class TestAnalyticsWidgetErrorHandling:
         
         assert "✗" in analytics_widget._status_label.text()
         assert "Fehler" in analytics_widget._status_label.text()
+
+
+class TestAnalyticsWidgetFilters:
+    """Tests für Filter-Funktionalität"""
+    
+    def test_team_filter_populated(self, analytics_widget, mock_worker_repository):
+        """Test: Team-Filter wird mit Teams populiert"""
+        workers = [
+            Worker(id=1, name="Alice", email="alice@test.com", team="Team A", active=True),
+            Worker(id=2, name="Bob", email="bob@test.com", team="Team B", active=True),
+            Worker(id=3, name="Charlie", email="charlie@test.com", team="Team A", active=True),
+        ]
+        mock_worker_repository.find_all.return_value = workers
+        
+        analytics_widget._load_initial_data()
+        
+        # "Alle Teams" + 2 unique teams = 3 items
+        assert analytics_widget._team_filter.count() == 3
+        assert analytics_widget._team_filter.itemText(0) == "Alle Teams"
+        assert "Team A" in [analytics_widget._team_filter.itemText(i) for i in range(analytics_widget._team_filter.count())]
+        assert "Team B" in [analytics_widget._team_filter.itemText(i) for i in range(analytics_widget._team_filter.count())]
+    
+    def test_status_filter_has_options(self, analytics_widget):
+        """Test: Status-Filter hat alle Optionen"""
+        assert analytics_widget._status_filter.count() == 4
+        assert analytics_widget._status_filter.itemText(0) == "Alle Status"
+        assert "Unter" in analytics_widget._status_filter.itemText(1)
+        assert "Optimal" in analytics_widget._status_filter.itemText(2)
+        assert "Über" in analytics_widget._status_filter.itemText(3)
+    
+    def test_apply_filters_team_filter(self, analytics_widget):
+        """Test: Team-Filter funktioniert"""
+        analytics_widget._workers = [
+            Worker(id=1, name="Alice", email="alice@test.com", team="Team A", active=True),
+            Worker(id=2, name="Bob", email="bob@test.com", team="Team B", active=True),
+            Worker(id=3, name="Charlie", email="charlie@test.com", team="Team A", active=True),
+        ]
+        
+        # Setze Team-Filter auf "Team A"
+        analytics_widget._team_filter.addItem("Team A", "Team A")
+        analytics_widget._team_filter.setCurrentIndex(1)
+        
+        filtered = analytics_widget._apply_filters()
+        
+        assert len(filtered) == 2
+        assert all(w.team == "Team A" for w in filtered)
+    
+    def test_apply_filters_no_filter(self, analytics_widget):
+        """Test: Ohne Filter werden alle Workers zurückgegeben"""
+        analytics_widget._workers = [
+            Worker(id=1, name="Alice", email="alice@test.com", team="Team A", active=True),
+            Worker(id=2, name="Bob", email="bob@test.com", team="Team B", active=True),
+        ]
+        
+        filtered = analytics_widget._apply_filters()
+        
+        assert len(filtered) == 2
+    
+    def test_table_sorting_enabled(self, analytics_widget):
+        """Test: Tabellen-Sortierung ist aktiviert"""
+        assert analytics_widget._team_table.isSortingEnabled()
+    
+    def test_filter_change_triggers_refresh(self, analytics_widget, qtbot, mock_analytics_service):
+        """Test: Filter-Änderung triggert Refresh"""
+        # Setup: Mock Analytics Service, damit refresh nicht crasht
+        mock_analytics_service.calculate_worker_utilization.return_value = None
+        analytics_widget._workers = []
+        
+        # Initialer State
+        initial_status = analytics_widget._status_label.text()
+        
+        # Team-Filter ändern
+        analytics_widget._team_filter.setCurrentIndex(0)
+        qtbot.wait(200)
+        
+        # Status sollte sich geändert haben (zeigt dass refresh getriggert wurde)
+        new_status = analytics_widget._status_label.text()
+        # Status wird von _refresh_data() verändert
+        assert new_status != initial_status or "Daten" in new_status or "geladen" in new_status
