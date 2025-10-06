@@ -99,7 +99,10 @@ class MainWindow(QMainWindow):
     def _add_placeholder_tabs(self):
         """Fügt Tabs mit echten Widgets hinzu"""
         # Tab 1: Zeiterfassung (mit echtem Widget)
-        self.time_entry_widget = TimeEntryWidget(self.time_entry_viewmodel)
+        self.time_entry_widget = TimeEntryWidget(
+            self.time_entry_viewmodel,
+            self.time_entry_repository
+        )
         self.time_entry_widget.entry_saved.connect(self._on_entry_saved)
         # Lade Workers für Dropdown
         workers = self.worker_repository.find_all()

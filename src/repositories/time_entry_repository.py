@@ -98,6 +98,36 @@ class TimeEntryRepository(BaseRepository[TimeEntry]):
         
         return entries
     
+    def find_by_date_range(
+        self,
+        start_date: str,
+        end_date: str
+    ) -> List[TimeEntry]:
+        """
+        Findet alle Zeiterfassungen in einem Datumsbereich
+        
+        Args:
+            start_date: Start-Datum (YYYY-MM-DD)
+            end_date: End-Datum (YYYY-MM-DD)
+            
+        Returns:
+            Liste von TimeEntry-Objekten
+        """
+        query_text = """
+            SELECT * FROM time_entries 
+            WHERE date >= ? AND date <= ?
+            ORDER BY date DESC
+        """
+        params = [start_date, end_date]
+        
+        query = self._execute_query(query_text, params)
+        
+        entries = []
+        while query.next():
+            entries.append(self._map_to_entity(query))
+        
+        return entries
+    
     def update(self, entry: TimeEntry) -> bool:
         """
         Aktualisiert Zeiterfassung
