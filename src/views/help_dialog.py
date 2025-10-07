@@ -162,7 +162,7 @@ class HelpDialog(QDialog):
                 <li>Filter: Team, Status (Unter/Optimal/Über)</li>
                 <li>Sortierbare Tabellen</li>
                 <li>Worker Detail-Dialog (Doppelklick)</li>
-                <li>Chart-Visualisierung (matplotlib)</li>
+                <li>Chart-Visualisierung (QtCharts)</li>
                 <li>CSV & Excel Export</li>
             </ul>
             
@@ -331,7 +331,7 @@ class HelpDialog(QDialog):
             <p>Doppelklick auf einen Worker öffnet einen Dialog mit:
             <ul>
                 <li>30-Tage und 90-Tage Statistiken</li>
-                <li>Auslastungs-Chart (matplotlib)</li>
+                <li>Auslastungs-Chart (QtCharts)</li>
                 <li>Historie aller Zeiterfassungen</li>
                 <li>Kapazitätsplanung</li>
             </ul>
