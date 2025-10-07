@@ -5,6 +5,12 @@ UI Automation Quick Start Guide
 Schnellstart für UI-Automation-Tests - 5 Minuten Setup!
 
 """
+import sys
+from pathlib import Path
+
+# Add project root to Python path for imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 # ============================================================================
 # SCHRITT 1: Dependencies prüfen
@@ -13,8 +19,6 @@ Schnellstart für UI-Automation-Tests - 5 Minuten Setup!
 print("\n" + "="*70)
 print("🚀 UI AUTOMATION QUICK START")
 print("="*70)
-
-import sys
 
 try:
     import pytest

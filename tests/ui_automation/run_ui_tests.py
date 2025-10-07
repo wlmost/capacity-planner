@@ -22,8 +22,12 @@ Examples:
 """
 import sys
 import os
-import pytest
+import subprocess
 from pathlib import Path
+
+# Add project root to Python path for imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 
 def run_tests(mode: str = "basic"):
@@ -60,8 +64,16 @@ def run_tests(mode: str = "basic"):
         print("Valid modes: basic, advanced, all, quick, demo")
         return 1
     
-    # Build pytest arguments
-    pytest_args = [
+    print(f"📂 Test location: {test_dir}")
+    print(f"🧪 Test files: {test_files}")
+    print("="*70)
+    print()
+    
+    # Run tests using subprocess to call pytest as module
+    # Use "python" to use the active Python in PATH (should be venv)
+    pytest_cmd = [
+        "python",
+        "-m", "pytest",
         *test_files,
         "-v",              # Verbose
         "-s",              # Show print statements
@@ -70,37 +82,24 @@ def run_tests(mode: str = "basic"):
         "-x",              # Stop on first failure
     ]
     
-    print(f"📂 Test location: {test_dir}")
-    print(f"🧪 Test files: {test_files}")
-    print("="*70)
-    print()
-    
-    # Run tests
-    result = pytest.main(pytest_args)
+    result = subprocess.run(pytest_cmd, cwd=project_root)
     
     print("\n" + "="*70)
-    if result == 0:
+    if result.returncode == 0:
         print("✅ All tests PASSED!")
     else:
-        print(f"❌ Tests FAILED (exit code: {result})")
+        print(f"❌ Tests FAILED (exit code: {result.returncode})")
     print("="*70)
     
-    return result
+    return result.returncode
 
 
 def main():
     """Main entry point"""
-    # Check if pytest is available
-    try:
-        import pytest
-    except ImportError:
-        print("❌ pytest is not installed!")
-        print("   Install with: pip install pytest pytest-qt")
-        return 1
-    
     # Check if PySide6 is available
     try:
         import PySide6
+        print("✅ PySide6 is installed")
     except ImportError:
         print("❌ PySide6 is not installed!")
         print("   Install with: pip install PySide6")
