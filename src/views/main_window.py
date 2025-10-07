@@ -568,12 +568,20 @@ class MainWindow(QMainWindow):
                 new_window = MainWindow(self.session_service, self.db_service, self.crypto_service)
                 new_window.show()
             else:
-                # User hat abgebrochen → App beenden
-                import sys
-                sys.exit(0)
+                # User hat abgebrochen → App beenden über QApplication
+                from PySide6.QtWidgets import QApplication
+                QApplication.quit()  # Sauberes Beenden, main.py kann aufräumen
     
     def closeEvent(self, event):
         """Cleanup beim Schließen"""
+        # Repository-Referenzen löschen (wichtig für sauberes DB-Close)
+        if hasattr(self, 'worker_repository'):
+            del self.worker_repository
+        if hasattr(self, 'time_entry_repository'):
+            del self.time_entry_repository
+        if hasattr(self, 'project_repository'):
+            del self.project_repository
+        
         # WICHTIG: DB-Service NICHT hier schließen!
         # Die DB-Verbindung wird von main.py verwaltet
         event.accept()

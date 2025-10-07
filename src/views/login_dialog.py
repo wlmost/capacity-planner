@@ -151,8 +151,34 @@ class LoginDialog(QDialog):
         """Lädt alle aktiven Worker aus der Datenbank"""
         try:
             self._workers = self._worker_repository.find_all(active_only=True)
+            
+            # Wenn keine Worker vorhanden: Admin-Mode erzwingen
+            if not self._workers:
+                self._show_no_workers_message()
         except Exception as e:
             self._show_error(f"Fehler beim Laden der Worker: {e}")
+    
+    def _show_no_workers_message(self):
+        """Zeigt Hinweis an, wenn keine Worker vorhanden sind"""
+        self.status_label.setText(
+            "⚠️ Keine Worker in der Datenbank!\n"
+            "Du wirst im Admin-Mode angemeldet.\n"
+            "Bitte erstelle zunächst Worker-Stammdaten."
+        )
+        self.status_label.setStyleSheet("color: #ff9800; font-weight: bold;")
+        self.status_label.setVisible(True)
+        
+        # Admin-Mode automatisch aktivieren
+        self.admin_checkbox.setChecked(True)
+        self.admin_checkbox.setEnabled(False)
+        
+        # Eingabefeld deaktivieren (nicht benötigt)
+        self.name_input.setEnabled(False)
+        self.name_input.setPlaceholderText("(Admin-Mode: Keine Worker-Auswahl erforderlich)")
+        
+        # Login-Button aktivieren
+        self.login_button.setEnabled(True)
+        self.login_button.setText("Als Administrator fortfahren")
     
     def _setup_completer(self):
         """Konfiguriert Autovervollständigung"""

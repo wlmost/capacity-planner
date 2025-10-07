@@ -134,10 +134,22 @@ class DatabaseService:
         return query
     
     def close(self) -> None:
-        """Schließt Datenbankverbindung"""
-        if self.db:
+        """
+        Schließt Datenbankverbindung
+        
+        Hinweis: Qt's removeDatabase() wird NICHT aufgerufen, da dies
+        eine Warnung erzeugt, wenn noch QSqlQuery-Objekte existieren.
+        Qt räumt Verbindungen automatisch beim Application-Exit auf.
+        """
+        if self.db and self.db.isOpen():
             self.db.close()
-            QSqlDatabase.removeDatabase(self.connection_name)
+            
+        # Setze DB-Referenz auf None
+        self.db = None
+        
+        # NICHT removeDatabase() aufrufen - Qt macht Cleanup automatisch
+        # beim QApplication.quit(). Dies vermeidet die Warnung:
+        # "QSqlDatabasePrivate::removeDatabase: connection is still in use"
     
     def get_db_path(self) -> str:
         """

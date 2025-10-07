@@ -49,6 +49,7 @@ class LoginDialog(QDialog):
     - Checkbox "Als Admin anmelden"
     - Checkbox "Anmeldung merken"
     - Validierung gegen Datenbank
+    - Automatischer Admin-Mode bei leerer Datenbank
     """
 ```
 
@@ -57,6 +58,15 @@ class LoginDialog(QDialog):
 2. Autovervollständigung schlägt passende Worker vor
 3. Optional: Admin-Checkbox aktivieren
 4. Dialog validiert und gibt Worker-ID zurück (oder None bei Admin)
+
+**Sonderfall - Leere Datenbank:**
+- Wenn **keine Worker** in der Datenbank existieren:
+  - ⚠️ Warnung: "Keine Worker in der Datenbank!"
+  - Admin-Checkbox automatisch aktiviert und gesperrt
+  - Eingabefeld deaktiviert
+  - Button-Text: "Als Administrator fortfahren"
+  - User wird im Admin-Mode angemeldet
+  - Hinweis: Erst Worker-Stammdaten erstellen
 
 ### 2. Session-Management
 

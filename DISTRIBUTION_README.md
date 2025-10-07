@@ -13,6 +13,19 @@ Die `CapacityPlanner.exe` ist eine standalone Anwendung, die ohne Python-Install
 3. Beim ersten Start wird automatisch:
    - Eine Datenbank erstellt (`~/.capacity_planner/capacity_planner.db`)
    - Verschlüsselungs-Keys generiert (`~/.capacity_planner/keys/`)
+   - Der **Login-Dialog** erscheint
+
+### Erstanmeldung (Leere Datenbank)
+
+Wenn die Datenbank noch **keine Worker** enthält:
+- ⚠️ Du wirst automatisch im **Admin-Mode** angemeldet
+- Die Meldung "Keine Worker in der Datenbank!" erscheint
+- Klicke auf **"Als Administrator fortfahren"**
+- Erstelle zunächst **Worker-Stammdaten** im Worker-Tab:
+  1. Klicke auf "➕ Hinzufügen" im Worker-Tab
+  2. Gib Name, Email, Soll-Stunden ein
+  3. Speichere den Worker
+- Beim nächsten Start kannst du dich als Worker anmelden
 
 ## System-Anforderungen
 
