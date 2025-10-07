@@ -38,13 +38,18 @@
   - [ ] Auswahl Einzel-Worker oder Mehrfach-Worker (Default: Einzelworker)
   - [ ] Umschaltung zwischen Dark- und Ligh-Mode
   - [ ] Autosave Einstellung (Default: 5min)
-- [ ] **Profil (Ausgewählter Worker)**
+- [ ] **Profil (Ausgewählter Worker)** (Dialog)
   - [ ] Worker-Auswahl Dropdown (bei Mehrfach-Worker)
   - [ ] **Regelarbeitsstunden/Tag** (Eingabefeld, Default: 8h)
   - [ ] **Jahresurlaub** (Tage pro Jahr, Default: 30)
   - [ ] **Übertrag Vorjahr** (Resturlaub aus Vorjahr)
+  - [ ] **Status** (Default: aktiv)
+  - [ ] **Name** (Eingabefeld)
+  - [ ] **Emailadresse** (Eingabefeld)
+  - [ ] **Team** (Eingabefeld)
   - [ ] Profil speichern & laden
   - [ ] Mehrere Profile verwalten
+  - [ ] Die Anwendung muss sich entsprechend verhalten bei Einzel- oder Mehrfachworker (Diagramme, usw)
 
 #### **Hilfe-Menü** ❓
 - [ ] **Bedienungshilfe**
