@@ -2,7 +2,25 @@
 
 **Erstellt:** 06.10.2025  
 **Projekt:** Capacity Planner Sonnet  
-**Status:** 🔜 Geplant für nächste Sitzung
+**Aktuelle Version:** v0.6.0  
+**Status:** � In Arbeit (Table Search 25%)
+
+---
+
+## 📦 Kürzlich Abgeschlossen (v0.4.0 - v0.6.0)
+
+| Version | Datum | Feature | Tests | Coverage | Dokumentation |
+|---------|-------|---------|-------|----------|---------------|
+| v0.4.0 | 07.10.2025 | PDF Export | 88 ✅ | 34% | pdf-export-implementation.md |
+| v0.5.0 | 07.10.2025 | Date Range Filter | 103 ✅ | 36% | date-filter-concept.md |
+| v0.6.0 | 07.10.2025 | Table Search (25%) | 124 ✅ | 37% | table-search-concept.md |
+
+**Highlights:**
+- ✅ PDF-Export aus WorkerDetailDialog mit ReportLab
+- ✅ DateRangeWidget mit 8 Quick-Select Presets
+- 🔄 TableSearchWidget (wiederverwendbare Komponente, 1/4 Widgets integriert)
+- 📈 Tests: 79 → 124 (+45 Tests, +57%)
+- 📊 Coverage: 30% → 37% (+7%)
 
 ---
 
@@ -85,101 +103,80 @@ def _setup_menu(self):
 
 ## 🎯 Priorität: MITTEL
 
-### 2. **PDF-Export aus WorkerDetailDialog** 📄
+### 2. ~~**PDF-Export aus WorkerDetailDialog**~~ 📄 ✅ **ABGESCHLOSSEN (v0.4.0)**
 
-- [ ] PDF-Export Button hinzufügen
-- [ ] ReportLab oder QPrinter Integration
-- [ ] PDF-Layout erstellen:
+- [x] PDF-Export Button hinzufügen
+- [x] ReportLab Integration
+- [x] PDF-Layout erstellen:
   - Worker-Header (Name, Team, Email)
   - Statistiken (30-Tage, 90-Tage)
   - Chart als Bild einbetten
   - Time Entries Tabelle
   - Capacities Tabelle
-- [ ] Dateiname-Generierung: `{worker_name}_{datum}.pdf`
-- [ ] Speichern-Dialog mit Vorschau
+- [x] Dateiname-Generierung: `{worker_name}_{datum}.pdf`
+- [x] Speichern-Dialog mit Vorschau
 
-**Aufwand:** ~4-5 Stunden  
-**Dependencies:** `pip install reportlab` oder Qt's QPrinter  
-**Technische Hinweise:**
-```python
-# In worker_detail_dialog.py
-def _export_to_pdf(self):
-    """Exportiert Worker-Details als PDF"""
-    from reportlab.lib.pagesizes import A4
-    from reportlab.pdfgen import canvas
-    
-    filename = f"{self._worker.name}_{datetime.now().strftime('%Y%m%d')}.pdf"
-    # PDF generieren...
-```
+**Status:** ✅ Implementiert am 07.10.2025  
+**Version:** v0.4.0  
+**Aufwand:** ~4 Stunden  
+**Tests:** 88 Tests passing (34% Coverage)  
+**Dokumentation:** `docs/pdf-export-implementation.md`
 
 ---
 
-### 3. **Suche in Tabellen** 🔍
+### 3. ~~**Suche in Tabellen**~~ 🔍 ✅ **TEILWEISE ABGESCHLOSSEN (v0.6.0)**
 
-- [ ] Such-Widget über jeder Tabelle
-- [ ] Live-Suche (während Tippen)
-- [ ] Suche in mehreren Spalten
-- [ ] Treffer-Highlighting
-- [ ] Anzahl Treffer anzeigen
-- [ ] Navigation: Nächster/Vorheriger Treffer
+- [x] Such-Widget über jeder Tabelle (Komponente erstellt)
+- [x] Live-Suche (während Tippen)
+- [x] Suche in mehreren Spalten
+- [x] Anzahl Treffer anzeigen (mit Farb-Coding)
+- [x] Clear-Button (integriert in QLineEdit)
+- [ ] Treffer-Highlighting (optional)
+- [ ] Navigation: Nächster/Vorheriger Treffer (optional)
 
 **Betroffene Widgets:**
-- TimeEntryWidget (Zeitbuchungen-Liste)
-- AnalyticsWidget (Team-Übersicht)
-- WorkerWidget (Worker-Liste)
-- CapacityWidget (Kapazitäts-Liste)
+- [x] AnalyticsWidget (Team-Übersicht) - **ABGESCHLOSSEN**
+- [ ] TimeEntryWidget (Zeitbuchungen-Liste) - **OFFEN**
+- [ ] WorkerWidget (Worker-Liste) - **OFFEN**
+- [ ] CapacityWidget (Kapazitäts-Liste) - **OFFEN**
 
-**Aufwand:** ~3-4 Stunden  
-**Technische Hinweise:**
-```python
-# Such-Widget Komponente
-class SearchWidget(QWidget):
-    def __init__(self):
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Suchen...")
-        self.search_input.textChanged.connect(self._on_search)
-    
-    def _on_search(self, text):
-        # Filter Tabelle basierend auf Suchtext
-        pass
-```
+**Status:** 🔄 25% abgeschlossen (1 von 4 Widgets integriert)  
+**Version:** v0.6.0  
+**Aufwand bisher:** ~3 Stunden  
+**Restaufwand:** ~1.5 Stunden (3 Widget-Integrationen)  
+**Tests:** 124 Tests passing (37% Coverage, TableSearchWidget: 98%)  
+**Dokumentation:** `docs/table-search-concept.md`  
+**Komponente:** `src/views/table_search_widget.py` (wiederverwendbar)
 
 ---
 
-### 4. **Erweiterte Datums-Filter** 📅
+### 4. ~~**Erweiterte Datums-Filter**~~ 📅 ✅ **ABGESCHLOSSEN (v0.5.0)**
 
-- [ ] Vordefinierte Zeiträume:
-  - [ ] Heute
-  - [ ] Diese Woche
-  - [ ] Dieser Monat
-  - [ ] Dieses Quartal
-  - [ ] Dieses Jahr
-  - [ ] Letzte 7 Tage
-  - [ ] Letzte 30 Tage
-  - [ ] Letzte 90 Tage
-- [ ] Custom Range Picker
-- [ ] Quick-Select Buttons
-- [ ] Kalender-Ansicht
+- [x] Vordefinierte Zeiträume:
+  - [x] Heute
+  - [x] Diese Woche
+  - [x] Dieser Monat
+  - [x] Dieses Quartal
+  - [x] Dieses Jahr
+  - [x] Letzte 7 Tage
+  - [x] Letzte 30 Tage
+  - [x] Letzte 90 Tage
+- [x] Quick-Select Buttons
+- [x] Automatische Synchronisation mit Date-Edit Feldern
+- [x] Exclusive Button Group (nur ein Preset aktiv)
+- [ ] Kalender-Ansicht (optional, bereits via QDateEdit)
 
 **Betroffene Widgets:**
-- AnalyticsWidget
-- CapacityWidget
-- Alle Report-Funktionen
+- [x] AnalyticsWidget (vollständig integriert)
+- [ ] CapacityWidget (zukünftige Integration)
+- [ ] Alle Report-Funktionen (zukünftig)
 
-**Aufwand:** ~2-3 Stunden  
-**Technische Hinweise:**
-```python
-# DateRangeWidget Komponente
-class DateRangeWidget(QWidget):
-    date_range_changed = Signal(QDate, QDate)
-    
-    def __init__(self):
-        # Buttons für Presets
-        self.today_btn = QPushButton("Heute")
-        self.week_btn = QPushButton("Diese Woche")
-        self.month_btn = QPushButton("Dieser Monat")
-        # ...
-```
+**Status:** ✅ Implementiert am 07.10.2025  
+**Version:** v0.5.0  
+**Aufwand:** ~3 Stunden  
+**Tests:** 103 Tests passing (36% Coverage, DateRangeWidget: 100%)  
+**Dokumentation:** `docs/date-filter-concept.md`  
+**Komponente:** `src/views/date_range_widget.py` (wiederverwendbar)
 
 ---
 
@@ -251,14 +248,19 @@ class NotificationService:
 
 ## 📋 Implementierungs-Reihenfolge (Empfohlen)
 
-1. ✅ **Menüleiste erweitern** (HOCH) - Grundfunktionen für Import/Export
-2. ✅ **Einstellungen/Profil** (HOCH) - Worker-Konfiguration
-3. ✅ **Erweiterte Datums-Filter** (MITTEL) - Schnell & nützlich
-4. ✅ **Suche in Tabellen** (MITTEL) - UX-Verbesserung
-5. ✅ **PDF-Export WorkerDetail** (MITTEL) - Reporting-Feature
-6. ✅ **Hilfe/Bedienungshilfe** (HOCH) - Dokumentation
+1. 🔜 **Menüleiste erweitern** (HOCH) - Grundfunktionen für Import/Export
+2. 🔜 **Einstellungen/Profil** (HOCH) - Worker-Konfiguration
+3. ✅ **Erweiterte Datums-Filter** (MITTEL) - v0.5.0 abgeschlossen
+4. 🔄 **Suche in Tabellen** (MITTEL) - v0.6.0 teilweise (25%)
+5. ✅ **PDF-Export WorkerDetail** (MITTEL) - v0.4.0 abgeschlossen
+6. 🔜 **Hilfe/Bedienungshilfe** (HOCH) - Dokumentation
 7. 🔜 **Trend-Analyse** (NIEDRIG) - Advanced Feature
 8. 🔜 **Notifications** (NIEDRIG) - Optional Feature
+
+**Legende:**
+- ✅ = Abgeschlossen
+- 🔄 = In Arbeit
+- 🔜 = Geplant
 
 ---
 
@@ -271,38 +273,52 @@ Für jedes neue Feature:
 - [ ] User Acceptance Testing
 
 **Aktueller Stand:**
-- ✅ 79/79 Tests bestehen
-- ✅ 30% Coverage
-- 🎯 Ziel: 80+ Tests, 40%+ Coverage
+- ✅ 124/124 Tests bestehen
+- ✅ 37% Coverage (+7% seit Start)
+- 🎯 Ziel: 150+ Tests, 45%+ Coverage
+
+**Letzte Updates:**
+- v0.4.0 (07.10.2025): PDF Export - 88 Tests, 34% Coverage
+- v0.5.0 (07.10.2025): Date Range Filter - 103 Tests, 36% Coverage
+- v0.6.0 (07.10.2025): Table Search (partial) - 124 Tests, 37% Coverage
 
 ---
 
 ## 📊 Geschätzter Gesamt-Aufwand
 
-| Feature | Aufwand | Priorität |
-|---------|---------|-----------|
-| Menüleiste (komplett) | 8-10h | HOCH |
-| Profil-Einstellungen | 4-5h | HOCH |
-| PDF-Export | 4-5h | MITTEL |
-| Suche in Tabellen | 3-4h | MITTEL |
-| Datums-Filter | 2-3h | MITTEL |
-| Trend-Analyse | 6-8h | NIEDRIG |
-| Notifications | 4-5h | NIEDRIG |
+| Feature | Aufwand | Status | Version |
+|---------|---------|--------|---------|
+| Menüleiste (komplett) | 8-10h | 🔜 Geplant | - |
+| Profil-Einstellungen | 4-5h | 🔜 Geplant | - |
+| PDF-Export | 4h | ✅ Abgeschlossen | v0.4.0 |
+| Datums-Filter | 3h | ✅ Abgeschlossen | v0.5.0 |
+| Suche in Tabellen | 4.5h (3h+1.5h) | 🔄 25% | v0.6.0 |
+| Trend-Analyse | 6-8h | 🔜 Geplant | - |
+| Notifications | 4-5h | 🔜 Geplant | - |
 
-**Gesamt:** ~31-40 Stunden (ca. 5-7 Arbeitstage)
+**Abgeschlossen:** ~10 Stunden  
+**In Arbeit:** ~1.5 Stunden verbleibend  
+**Verbleibend:** ~21-28 Stunden (ca. 3-4 Arbeitstage)
 
 ---
 
 ## 🎯 Ziel für nächste Sitzung
 
-**Minimum:**
-- ✅ Menüleiste mit Datei-Menü vollständig
-- ✅ Profil-Einstellungen Dialog funktionsfähig
-- ✅ Import/Export Basis-Funktionalität
+**Priorität 1 (Suche abschließen):**
+- [ ] TableSearchWidget in TimeEntryWidget integrieren
+- [ ] TableSearchWidget in WorkerWidget integrieren
+- [ ] TableSearchWidget in CapacityWidget integrieren
+- [ ] Tests für alle Integrationen (je ~7 Tests)
+- [ ] Dokumentation aktualisieren
+
+**Priorität 2 (Import/Export Basis):**
+- [ ] Menüleiste mit Datei-Menü vollständig
+- [ ] Import/Export Basis-Funktionalität
+- [ ] Format-Validierung
 
 **Optional (wenn Zeit):**
-- ✅ Erweiterte Datums-Filter
-- ✅ Suche in TimeEntry-Tabelle
+- [ ] Profil-Einstellungen Dialog
+- [ ] RegEx-Suche Option
 
 ---
 
@@ -347,6 +363,7 @@ class WorkerProfile:
 
 ## ✅ Abgeschlossene Features (zur Referenz)
 
+### Core Funktionalität (bis v0.3.0)
 - ✅ Phase 0: Core Services (Crypto, Database, Analytics)
 - ✅ Phase 1: TimeEntry UI mit Split View
 - ✅ Phase 2: Worker Management mit Verschlüsselung
@@ -355,9 +372,33 @@ class WorkerProfile:
 - ✅ Phase 4 Part 2: Worker Detail Dialog + Filters
 - ✅ TimeEntry Redesign: Liste + Löschen + Autocomplete
 
-**Status:** 🎉 **Alle Basis-Features implementiert!**
+### Neue Features (ab v0.4.0)
+- ✅ **v0.4.0** (07.10.2025): PDF Export aus WorkerDetailDialog
+  - ReportLab Integration
+  - Vollständiger Worker-Report mit Statistiken, Charts, Tabellen
+  - 88 Tests passing, 34% Coverage
+  - Dokumentation: `docs/pdf-export-implementation.md`
+
+- ✅ **v0.5.0** (07.10.2025): Erweiterte Datums-Filter
+  - DateRangeWidget mit 8 Presets (Heute, Woche, Monat, Quartal, Jahr, Letzte 7/30/90 Tage)
+  - Integration in AnalyticsWidget
+  - 103 Tests passing, 36% Coverage
+  - Dokumentation: `docs/date-filter-concept.md`
+
+- 🔄 **v0.6.0** (07.10.2025): Table Search Functionality (25% abgeschlossen)
+  - TableSearchWidget Komponente (wiederverwendbar)
+  - Live-Suche mit Multi-Column Support
+  - Treffer-Anzeige mit Farb-Coding
+  - Integration in AnalyticsWidget ✅
+  - 124 Tests passing, 37% Coverage
+  - Dokumentation: `docs/table-search-concept.md`
+  - Verbleibend: TimeEntryWidget, WorkerWidget, CapacityWidget
+
+**Status:** 🎉 **3 neue Features in v0.4.0 - v0.6.0 hinzugefügt!**
 
 ---
 
-**Letzte Aktualisierung:** 06.10.2025  
-**Nächste Review:** Bei Start der nächsten Sitzung
+**Letzte Aktualisierung:** 07.10.2025  
+**Nächste Review:** Bei Start der nächsten Sitzung  
+**Aktuelle Version:** v0.6.0 (Table Search 25%)  
+**Nächstes Milestone:** v0.7.0 (Table Search 100%)
