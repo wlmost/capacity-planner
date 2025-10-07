@@ -5,9 +5,9 @@ Haupt-Fenster der Anwendung
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTabWidget, QMenuBar, QMenu, QStatusBar, QLabel,
-    QMessageBox
+    QMessageBox, QFileDialog
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QAction
 
 from .time_entry_widget import TimeEntryWidget
@@ -44,12 +44,18 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Kapazitäts- & Auslastungsplaner")
         self.setMinimumSize(1024, 768)
         
+        # Settings laden
+        self.settings = QSettings("CapacityPlanner", "Settings")
+        
         # Services und Repositories initialisieren
         self._init_services()
         
         self._setup_ui()
         self._setup_menu()
         self._setup_statusbar()
+        
+        # Dark Mode anwenden falls aktiviert
+        self._apply_dark_mode()
     
     def _init_services(self):
         """Initialisiert Services und Repositories"""
@@ -219,13 +225,51 @@ class MainWindow(QMainWindow):
             )
     
     def _on_save(self):
-        """Speichert aktuellen Zustand / Backup"""
-        # TODO: Backup-Funktionalität implementieren
-        QMessageBox.information(
-            self,
-            "Sichern",
-            "Backup-Funktionalität folgt in einer späteren Version.\n\nAlle Daten werden automatisch in der Datenbank gespeichert."
-        )
+        """Erstellt Backup der Datenbank"""
+        import os
+        import shutil
+        from datetime import datetime
+        
+        # Datenbank-Pfad ermitteln
+        db_path = self.db_service.get_db_path()
+        
+        if not os.path.exists(db_path):
+            QMessageBox.warning(
+                self,
+                "Backup fehlgeschlagen",
+                "Datenbank-Datei nicht gefunden."
+            )
+            return
+        
+        # Backup-Ordner im Home-Verzeichnis
+        backup_dir = os.path.join(os.path.expanduser("~"), ".capacity_planner", "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        # Backup-Dateiname mit Timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"capacity_planner_backup_{timestamp}.db"
+        backup_path = os.path.join(backup_dir, backup_filename)
+        
+        try:
+            # Datenbank kopieren
+            shutil.copy2(db_path, backup_path)
+            
+            # Erfolgsmeldung
+            QMessageBox.information(
+                self,
+                "Backup erfolgreich",
+                f"Datenbank-Backup wurde erstellt:\n\n{backup_path}\n\n"
+                f"Größe: {os.path.getsize(backup_path) / 1024:.1f} KB"
+            )
+            
+            self.statusbar.showMessage(f"Backup erstellt: {backup_filename}", 5000)
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Backup fehlgeschlagen",
+                f"Fehler beim Erstellen des Backups:\n\n{str(e)}"
+            )
     
     def _on_export(self):
         """Exportiert Daten"""
@@ -263,7 +307,9 @@ class MainWindow(QMainWindow):
     def _show_app_settings(self):
         """Zeigt Anwendungseinstellungen-Dialog"""
         dialog = SettingsDialog(self)
-        dialog.exec()
+        if dialog.exec():
+            # Dark Mode ggf. neu anwenden
+            self._apply_dark_mode()
     
     def _show_profile_dialog(self):
         """Zeigt Profil-Dialog"""
@@ -294,6 +340,152 @@ class MainWindow(QMainWindow):
             github.com/wlmost/capacity-planner</a></p>
             """
         )
+    
+    def _apply_dark_mode(self):
+        """Wendet Dark Mode an falls aktiviert"""
+        dark_mode = self.settings.value("dark_mode", False, type=bool)
+        
+        if dark_mode:
+            # Dark Mode Stylesheet
+            dark_stylesheet = """
+                QWidget {
+                    background-color: #2b2b2b;
+                    color: #e0e0e0;
+                }
+                QMainWindow {
+                    background-color: #2b2b2b;
+                }
+                QTabWidget::pane {
+                    border: 1px solid #3a3a3a;
+                    background-color: #2b2b2b;
+                }
+                QTabBar::tab {
+                    background-color: #3a3a3a;
+                    color: #e0e0e0;
+                    padding: 8px 16px;
+                    border: 1px solid #4a4a4a;
+                }
+                QTabBar::tab:selected {
+                    background-color: #4a4a4a;
+                    border-bottom-color: #4a4a4a;
+                }
+                QTabBar::tab:hover {
+                    background-color: #454545;
+                }
+                QMenuBar {
+                    background-color: #2b2b2b;
+                    color: #e0e0e0;
+                    border-bottom: 1px solid #3a3a3a;
+                }
+                QMenuBar::item {
+                    background-color: transparent;
+                    padding: 4px 8px;
+                }
+                QMenuBar::item:selected {
+                    background-color: #3a3a3a;
+                }
+                QMenu {
+                    background-color: #2b2b2b;
+                    color: #e0e0e0;
+                    border: 1px solid #3a3a3a;
+                }
+                QMenu::item:selected {
+                    background-color: #3a3a3a;
+                }
+                QStatusBar {
+                    background-color: #2b2b2b;
+                    color: #e0e0e0;
+                    border-top: 1px solid #3a3a3a;
+                }
+                QPushButton {
+                    background-color: #3a3a3a;
+                    color: #e0e0e0;
+                    border: 1px solid #4a4a4a;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                }
+                QPushButton:hover {
+                    background-color: #454545;
+                }
+                QPushButton:pressed {
+                    background-color: #4a4a4a;
+                }
+                QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QDateEdit, QComboBox {
+                    background-color: #3a3a3a;
+                    color: #e0e0e0;
+                    border: 1px solid #4a4a4a;
+                    padding: 4px;
+                    border-radius: 3px;
+                }
+                QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+                    border: 1px solid #5a8fd6;
+                }
+                QTableWidget {
+                    background-color: #2b2b2b;
+                    alternate-background-color: #323232;
+                    color: #e0e0e0;
+                    gridline-color: #3a3a3a;
+                    border: 1px solid #3a3a3a;
+                }
+                QTableWidget::item {
+                    padding: 4px;
+                }
+                QTableWidget::item:selected {
+                    background-color: #4a4a4a;
+                }
+                QHeaderView::section {
+                    background-color: #3a3a3a;
+                    color: #e0e0e0;
+                    padding: 6px;
+                    border: 1px solid #4a4a4a;
+                }
+                QLabel {
+                    color: #e0e0e0;
+                }
+                QGroupBox {
+                    border: 1px solid #4a4a4a;
+                    border-radius: 4px;
+                    margin-top: 8px;
+                    padding-top: 8px;
+                    color: #e0e0e0;
+                }
+                QGroupBox::title {
+                    subcontrol-origin: margin;
+                    subcontrol-position: top left;
+                    padding: 0 4px;
+                    color: #e0e0e0;
+                }
+                QCheckBox {
+                    color: #e0e0e0;
+                }
+                QScrollBar:vertical {
+                    background-color: #2b2b2b;
+                    width: 14px;
+                }
+                QScrollBar::handle:vertical {
+                    background-color: #4a4a4a;
+                    border-radius: 4px;
+                }
+                QScrollBar::handle:vertical:hover {
+                    background-color: #5a5a5a;
+                }
+                QProgressBar {
+                    background-color: #3a3a3a;
+                    border: 1px solid #4a4a4a;
+                    border-radius: 4px;
+                    text-align: center;
+                }
+                QProgressBar::chunk {
+                    background-color: #5a8fd6;
+                    border-radius: 3px;
+                }
+            """
+            self.setStyleSheet(dark_stylesheet)
+            self.statusbar.showMessage("Dark Mode aktiviert", 3000)
+        else:
+            # Light Mode (Standard)
+            self.setStyleSheet("")
+            self.statusbar.showMessage("Light Mode aktiviert", 3000)
     
     def closeEvent(self, event):
         """Cleanup beim Schließen"""

@@ -138,3 +138,12 @@ class DatabaseService:
         if self.db:
             self.db.close()
             QSqlDatabase.removeDatabase(self.connection_name)
+    
+    def get_db_path(self) -> str:
+        """
+        Gibt den Pfad zur Datenbankdatei zurück
+        
+        Returns:
+            Absoluter Pfad zur Datenbank
+        """
+        return self.database_path
