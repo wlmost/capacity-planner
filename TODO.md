@@ -21,7 +21,7 @@
 - [ ] **Sichern** - Projekt speichern
   - Aktuellen Zustand speichern
   - Backup erstellen
-  - Auto-Save Funktion
+
   
 - [ ] **Export** - Daten exportieren
   - Vollständiger Datenexport
@@ -34,12 +34,15 @@
   - Graceful Shutdown
 
 #### **Einstellungen-Menü** ⚙️
+- [ ] **Anwendungseinstellungen
+  - [ ] Auswahl Einzel-Worker oder Mehrfach-Worker (Default: Einzelworker)
+  - [ ] Umschaltung zwischen Dark- und Ligh-Mode
+  - [ ] Autosave Einstellung (Default: 5min)
 - [ ] **Profil (Ausgewählter Worker)**
-  - [ ] Worker-Auswahl Dropdown
+  - [ ] Worker-Auswahl Dropdown (bei Mehrfach-Worker)
   - [ ] **Regelarbeitsstunden/Tag** (Eingabefeld, Default: 8h)
   - [ ] **Jahresurlaub** (Tage pro Jahr, Default: 30)
   - [ ] **Übertrag Vorjahr** (Resturlaub aus Vorjahr)
-  - [ ] **Dark Mode Toggle** (Hell/Dunkel Umschaltung)
   - [ ] Profil speichern & laden
   - [ ] Mehrere Profile verwalten
 
