@@ -3,11 +3,11 @@ Main Entry Point für Kapazitäts- & Auslastungsplaner
 """
 import sys
 from PySide6.QtWidgets import QApplication, QDialog
-from .views.main_window import MainWindow
-from .views.login_dialog import LoginDialog
-from .services.session_service import SessionService
-from .services.database_service import DatabaseService
-from .services.crypto_service import CryptoService
+from src.views.main_window import MainWindow
+from src.views.login_dialog import LoginDialog
+from src.services.session_service import SessionService
+from src.services.database_service import DatabaseService
+from src.services.crypto_service import CryptoService
 
 
 def main():
