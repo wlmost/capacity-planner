@@ -2,6 +2,16 @@
 
 ## 🚀 Schnellstart (PowerShell)
 
+### ⚠️ WICHTIG: Voraussetzungen
+
+```powershell
+# Stelle sicher, dass pytest-qt installiert ist
+python -m pip install pytest-qt
+
+# Prüfe Installation
+python -m pip list | Select-String "pytest"
+```
+
 ### Einfachste Methode - Test Runner
 
 ```powershell
