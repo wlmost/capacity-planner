@@ -21,6 +21,7 @@ from ..models.worker import Worker
 from .utilization_chart_widget import UtilizationChartWidget
 from .worker_detail_dialog import WorkerDetailDialog
 from .date_range_widget import DateRangeWidget
+from .table_search_widget import TableSearchWidget
 
 
 class AnalyticsWidget(QWidget):
@@ -152,6 +153,11 @@ class AnalyticsWidget(QWidget):
         # Tab 1: Team Overview Table
         table_widget = QWidget()
         table_layout = QVBoxLayout(table_widget)
+        
+        # Such-Widget
+        self._search_widget = TableSearchWidget("🔍 Worker, Team oder Email suchen...")
+        self._search_widget.search_changed.connect(self._on_search)
+        table_layout.addWidget(self._search_widget)
         
         self._team_table = QTableWidget()
         self._team_table.setColumnCount(7)
@@ -287,6 +293,53 @@ class AnalyticsWidget(QWidget):
         except Exception as e:
             self._show_error(f"Fehler beim Aktualisieren: {str(e)}")
     
+    def _on_search(self, search_text: str):
+        """
+        Handler für Tabellen-Suche
+        
+        Filtert Tabellen-Zeilen basierend auf Suchtext.
+        Durchsucht Spalten: Worker Name, Team.
+        
+        Args:
+            search_text: Suchtext (case-insensitive)
+        """
+        if not search_text:
+            # Keine Suche: Alle Zeilen anzeigen
+            for row in range(self._team_table.rowCount()):
+                self._team_table.setRowHidden(row, False)
+            
+            self._search_widget.set_result_count(
+                self._team_table.rowCount(),
+                self._team_table.rowCount()
+            )
+            return
+        
+        search_lower = search_text.lower()
+        visible_count = 0
+        
+        for row in range(self._team_table.rowCount()):
+            # Prüfe Spalten: Worker Name (0) und Team (1)
+            match = False
+            
+            # Spalte 0: Worker Name
+            name_item = self._team_table.item(row, 0)
+            if name_item and search_lower in name_item.text().lower():
+                match = True
+            
+            # Spalte 1: Team
+            if not match:
+                team_item = self._team_table.item(row, 1)
+                if team_item and search_lower in team_item.text().lower():
+                    match = True
+            
+            # Zeile verstecken/anzeigen basierend auf Match
+            self._team_table.setRowHidden(row, not match)
+            if match:
+                visible_count += 1
+        
+        # Treffer-Anzeige aktualisieren
+        self._search_widget.set_result_count(visible_count, self._team_table.rowCount())
+    
     def _update_statistics(self):
         """Aktualisiert Statistik-Übersicht"""
         if not self._utilization_data:
@@ -378,6 +431,17 @@ class AnalyticsWidget(QWidget):
         
         # Chart aktualisieren
         self._chart_widget.update_chart(self._workers, self._utilization_data)
+        
+        # Suche re-applizieren wenn aktiv
+        search_text = self._search_widget.get_search_text()
+        if search_text:
+            self._on_search(search_text)
+        else:
+            # Treffer-Anzeige aktualisieren
+            self._search_widget.set_result_count(
+                self._team_table.rowCount(),
+                self._team_table.rowCount()
+            )
     
     def _apply_filters(self) -> List[Worker]:
         """Wendet aktuelle Filter auf Worker-Liste an"""
