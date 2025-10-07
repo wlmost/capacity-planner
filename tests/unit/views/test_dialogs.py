@@ -99,3 +99,66 @@ class TestHelpDialog:
         dialog = HelpDialog()
         assert dialog.minimumWidth() == 800
         assert dialog.minimumHeight() == 600
+
+
+class TestWorkerDetailDialog:
+    """Tests für WorkerDetailDialog"""
+    
+    @pytest.fixture
+    def sample_worker(self):
+        """Beispiel-Worker für Tests"""
+        from datetime import datetime
+        from src.models.worker import Worker
+        return Worker(
+            id=1,
+            name="Max Mustermann",
+            email="max@example.com",
+            team="Development",
+            active=True,
+            created_at=datetime.now()
+        )
+    
+    def test_dialog_creation(self, qapp, sample_worker):
+        """Dialog kann mit Worker erstellt werden"""
+        from src.views.worker_detail_dialog import WorkerDetailDialog
+        from unittest.mock import Mock
+        
+        # Mock-Services
+        analytics_service = Mock()
+        time_entry_repo = Mock()
+        capacity_repo = Mock()
+        
+        dialog = WorkerDetailDialog(
+            sample_worker,
+            analytics_service,
+            time_entry_repo,
+            capacity_repo
+        )
+        
+        assert dialog is not None
+        assert "Worker Details" in dialog.windowTitle()
+        assert sample_worker.name in dialog.windowTitle()
+    
+    def test_pdf_export_button_exists(self, qapp, sample_worker):
+        """PDF-Export Button ist vorhanden"""
+        from src.views.worker_detail_dialog import WorkerDetailDialog
+        from PySide6.QtWidgets import QPushButton
+        from unittest.mock import Mock
+        
+        analytics_service = Mock()
+        time_entry_repo = Mock()
+        capacity_repo = Mock()
+        
+        dialog = WorkerDetailDialog(
+            sample_worker,
+            analytics_service,
+            time_entry_repo,
+            capacity_repo
+        )
+        
+        # Suche nach PDF-Export Button
+        buttons = dialog.findChildren(QPushButton)
+        button_texts = [btn.text() for btn in buttons]
+        
+        # Button sollte vorhanden sein
+        assert any("PDF" in text for text in button_texts)
