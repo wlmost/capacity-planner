@@ -20,6 +20,7 @@ from ..repositories.capacity_repository import CapacityRepository
 from ..models.worker import Worker
 from .utilization_chart_widget import UtilizationChartWidget
 from .worker_detail_dialog import WorkerDetailDialog
+from .date_range_widget import DateRangeWidget
 
 
 class AnalyticsWidget(QWidget):
@@ -88,46 +89,56 @@ class AnalyticsWidget(QWidget):
         
         # Filter Section
         filter_group = QGroupBox("Zeitraum")
-        filter_layout = QHBoxLayout(filter_group)
+        filter_main_layout = QVBoxLayout(filter_group)
         
-        filter_layout.addWidget(QLabel("Von:"))
+        # Quick-Select Buttons (DateRangeWidget)
+        self._date_range_widget = DateRangeWidget()
+        self._date_range_widget.date_range_changed.connect(self._on_preset_selected)
+        filter_main_layout.addWidget(self._date_range_widget)
+        
+        # Datum-Auswahl + Team/Status Filter
+        filter_detail_layout = QHBoxLayout()
+        
+        filter_detail_layout.addWidget(QLabel("Von:"))
         self._start_date_filter = QDateEdit()
         self._start_date_filter.setCalendarPopup(True)
         self._start_date_filter.setDate(QDate.currentDate().addMonths(-1))
         self._start_date_filter.setDisplayFormat("dd.MM.yyyy")
         self._start_date_filter.dateChanged.connect(self._on_filter_changed)
-        filter_layout.addWidget(self._start_date_filter)
+        filter_detail_layout.addWidget(self._start_date_filter)
         
-        filter_layout.addWidget(QLabel("Bis:"))
+        filter_detail_layout.addWidget(QLabel("Bis:"))
         self._end_date_filter = QDateEdit()
         self._end_date_filter.setCalendarPopup(True)
         self._end_date_filter.setDate(QDate.currentDate())
         self._end_date_filter.setDisplayFormat("dd.MM.yyyy")
         self._end_date_filter.dateChanged.connect(self._on_filter_changed)
-        filter_layout.addWidget(self._end_date_filter)
+        filter_detail_layout.addWidget(self._end_date_filter)
         
-        filter_layout.addSpacing(20)
+        filter_detail_layout.addSpacing(20)
         
         # Team-Filter
-        filter_layout.addWidget(QLabel("Team:"))
+        filter_detail_layout.addWidget(QLabel("Team:"))
         self._team_filter = QComboBox()
         self._team_filter.addItem("Alle Teams", None)
         self._team_filter.currentIndexChanged.connect(self._on_filter_changed)
-        filter_layout.addWidget(self._team_filter)
+        filter_detail_layout.addWidget(self._team_filter)
         
-        filter_layout.addSpacing(20)
+        filter_detail_layout.addSpacing(20)
         
         # Status-Filter
-        filter_layout.addWidget(QLabel("Status:"))
+        filter_detail_layout.addWidget(QLabel("Status:"))
         self._status_filter = QComboBox()
         self._status_filter.addItem("Alle Status", None)
         self._status_filter.addItem("⚠ Unter (< 80%)", "under")
         self._status_filter.addItem("✓ Optimal (80-110%)", "optimal")
         self._status_filter.addItem("❗ Über (> 110%)", "over")
         self._status_filter.currentIndexChanged.connect(self._on_filter_changed)
-        filter_layout.addWidget(self._status_filter)
+        filter_detail_layout.addWidget(self._status_filter)
         
-        filter_layout.addStretch()
+        filter_detail_layout.addStretch()
+        
+        filter_main_layout.addLayout(filter_detail_layout)
         
         layout.addWidget(filter_group)
         
@@ -216,6 +227,30 @@ class AnalyticsWidget(QWidget):
             self._refresh_data()
         except Exception as e:
             self._show_error(f"Fehler beim Laden der Daten: {str(e)}")
+    
+    def _on_preset_selected(self, start_date: QDate, end_date: QDate):
+        """
+        Handler für DateRangeWidget Preset-Auswahl
+        
+        Aktualisiert die QDateEdit-Felder wenn ein Preset-Button geklickt wird.
+        _on_filter_changed() wird automatisch durch dateChanged Signal getriggert.
+        
+        Args:
+            start_date: Start-Datum des Presets
+            end_date: End-Datum des Presets
+        """
+        # Blockiere temporär die Signals um doppelte Aktualisierung zu vermeiden
+        self._start_date_filter.blockSignals(True)
+        self._end_date_filter.blockSignals(True)
+        
+        self._start_date_filter.setDate(start_date)
+        self._end_date_filter.setDate(end_date)
+        
+        self._start_date_filter.blockSignals(False)
+        self._end_date_filter.blockSignals(False)
+        
+        # Manuell Refresh triggern
+        self._refresh_data()
     
     def _refresh_data(self):
         """Aktualisiert alle Daten"""
