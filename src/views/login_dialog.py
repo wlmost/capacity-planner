@@ -38,7 +38,10 @@ class LoginDialog(QDialog):
             remember = dialog.remember_login
     """
     
-    def __init__(self, db_service: Optional[DatabaseService] = None, parent=None):
+    def __init__(self, 
+                 db_service: Optional[DatabaseService] = None, 
+                 crypto_service: Optional[CryptoService] = None,
+                 parent=None):
         super().__init__(parent)
         
         self.selected_worker_id: Optional[int] = None
@@ -47,11 +50,17 @@ class LoginDialog(QDialog):
         
         self._workers: List[Worker] = []
         
-        # Services initialisieren
+        # Services initialisieren oder übernehmen
         if db_service is None:
             db_service = DatabaseService()
+            db_service.initialize()
         self._db_service = db_service
-        self._crypto_service = CryptoService()
+        
+        if crypto_service is None:
+            crypto_service = CryptoService()
+            crypto_service.initialize_keys()
+        self._crypto_service = crypto_service
+        
         self._worker_repository = WorkerRepository(self._db_service, self._crypto_service)
         
         self._setup_ui()

@@ -5,7 +5,7 @@ Haupt-Fenster der Anwendung
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTabWidget, QMenuBar, QMenu, QStatusBar, QLabel,
-    QMessageBox, QFileDialog
+    QMessageBox, QFileDialog, QDialog
 )
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QAction
@@ -24,6 +24,7 @@ from ..services.time_parser_service import TimeParserService
 from ..services.database_service import DatabaseService
 from ..services.crypto_service import CryptoService
 from ..services.analytics_service import AnalyticsService
+from ..services.session_service import SessionService
 from ..repositories.time_entry_repository import TimeEntryRepository
 from ..repositories.worker_repository import WorkerRepository
 from ..repositories.capacity_repository import CapacityRepository
@@ -37,10 +38,21 @@ class MainWindow(QMainWindow):
     - Menu Bar (Datei, Ansicht, Hilfe)
     - Tab Widget (Zeiterfassung, Kapazitätsplanung, Analytics)
     - Status Bar
+    
+    Unterstützt Worker-Mode und Admin-Mode
     """
     
-    def __init__(self):
+    def __init__(self, 
+                 session_service: SessionService, 
+                 db_service: DatabaseService,
+                 crypto_service: CryptoService):
         super().__init__()
+        
+        # Services speichern
+        self.session_service = session_service
+        self.db_service = db_service  # Externe DB-Verbindung verwenden
+        self.crypto_service = crypto_service  # Externe Crypto-Service verwenden
+        
         self.setWindowTitle("Kapazitäts- & Auslastungsplaner")
         self.setMinimumSize(1024, 768)
         
@@ -53,19 +65,20 @@ class MainWindow(QMainWindow):
         self._setup_ui()
         self._setup_menu()
         self._setup_statusbar()
+        self._update_window_title()
         
         # Dark Mode anwenden falls aktiviert
         self._apply_dark_mode()
     
     def _init_services(self):
         """Initialisiert Services und Repositories"""
-        # Database Service
-        self.db_service = DatabaseService()
-        self.db_service.initialize()
+        # Database Service und Crypto Service wurden bereits von außen übergeben!
+        # self.db_service ist bereits gesetzt!
+        # self.crypto_service ist bereits gesetzt!
         
-        # Crypto Service
-        self.crypto_service = CryptoService()
-        self.crypto_service.initialize_keys()
+        # Crypto Service NICHT neu initialisieren
+        # self.crypto_service = CryptoService()
+        # self.crypto_service.initialize_keys()
         
         # Time Parser Service
         self.time_parser_service = TimeParserService()
@@ -114,9 +127,21 @@ class MainWindow(QMainWindow):
             self.time_entry_repository
         )
         self.time_entry_widget.entry_saved.connect(self._on_entry_saved)
-        # Lade Workers für Dropdown
-        workers = self.worker_repository.find_all()
-        self.time_entry_widget.load_workers(workers)
+        
+        # Worker-Mode: Lade nur aktuellen Worker
+        # Admin-Mode: Lade alle Worker, aber Widget disabled
+        if self.session_service.is_worker_mode():
+            worker_id = self.session_service.get_current_worker_id()
+            if worker_id:  # None-Check
+                worker = self.worker_repository.find_by_id(worker_id)
+                if worker:
+                    self.time_entry_widget.load_workers([worker])
+        elif self.session_service.is_admin_mode():
+            # Admin: Zeiterfassung deaktivieren
+            workers = self.worker_repository.find_all()
+            self.time_entry_widget.load_workers(workers)
+            self.time_entry_widget.setEnabled(False)
+        
         self.tab_widget.addTab(self.time_entry_widget, "Zeiterfassung")
         
         # Tab 2: Worker Management (mit echtem Widget)
@@ -155,6 +180,12 @@ class MainWindow(QMainWindow):
         export_action = QAction("&Exportieren...", self)
         export_action.triggered.connect(self._on_export)
         file_menu.addAction(export_action)
+        
+        file_menu.addSeparator()
+        
+        logout_action = QAction("🚪 &Abmelden", self)
+        logout_action.triggered.connect(self._on_logout)
+        file_menu.addAction(logout_action)
         
         file_menu.addSeparator()
         
@@ -487,8 +518,62 @@ class MainWindow(QMainWindow):
             self.setStyleSheet("")
             self.statusbar.showMessage("Light Mode aktiviert", 3000)
     
+    def _update_window_title(self):
+        """Aktualisiert Fenstertitel basierend auf Session"""
+        base_title = "Kapazitäts- & Auslastungsplaner"
+        
+        if self.session_service.is_admin_mode():
+            self.setWindowTitle(f"{base_title} - Administrator")
+        elif self.session_service.is_worker_mode():
+            worker_id = self.session_service.get_current_worker_id()
+            if worker_id:
+                worker = self.worker_repository.find_by_id(worker_id)
+                if worker:
+                    self.setWindowTitle(f"{base_title} - {worker.name}")
+                else:
+                    self.setWindowTitle(base_title)
+        else:
+            self.setWindowTitle(base_title)
+    
+    def _on_logout(self):
+        """Abmelden und Login-Dialog anzeigen"""
+        reply = QMessageBox.question(
+            self,
+            "Abmelden",
+            "Möchtest du dich wirklich abmelden?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Session beenden
+            self.session_service.logout()
+            
+            # Fenster schließen
+            self.close()
+            
+            # Neuen Login-Dialog anzeigen
+            from .login_dialog import LoginDialog
+            login_dialog = LoginDialog(self.db_service, self.crypto_service)
+            
+            if login_dialog.exec() == QDialog.DialogCode.Accepted:
+                # Neu einloggen
+                self.session_service.login(
+                    worker_id=login_dialog.selected_worker_id,
+                    is_admin=login_dialog.is_admin,
+                    remember=login_dialog.remember_login
+                )
+                
+                # Neues Hauptfenster erstellen (mit allen Services!)
+                new_window = MainWindow(self.session_service, self.db_service, self.crypto_service)
+                new_window.show()
+            else:
+                # User hat abgebrochen → App beenden
+                import sys
+                sys.exit(0)
+    
     def closeEvent(self, event):
         """Cleanup beim Schließen"""
-        if hasattr(self, 'db_service'):
-            self.db_service.close()
+        # WICHTIG: DB-Service NICHT hier schließen!
+        # Die DB-Verbindung wird von main.py verwaltet
         event.accept()

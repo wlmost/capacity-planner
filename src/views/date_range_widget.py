@@ -85,6 +85,7 @@ class DateRangeWidget(QWidget):
         btn.setStyleSheet("""
             QPushButton {
                 background-color: #e0e0e0;
+                color: #000000;
                 border: 1px solid #c0c0c0;
                 border-radius: 4px;
                 padding: 6px 12px;
@@ -92,6 +93,7 @@ class DateRangeWidget(QWidget):
             }
             QPushButton:hover {
                 background-color: #d0d0d0;
+                color: #000000;
                 border: 1px solid #b0b0b0;
             }
             QPushButton:checked {
@@ -102,6 +104,7 @@ class DateRangeWidget(QWidget):
             }
             QPushButton:pressed {
                 background-color: #45a049;
+                color: white;
             }
         """)
         self._button_group.addButton(btn)
