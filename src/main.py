@@ -32,7 +32,6 @@ def main():
     
     if not saved_session:
         # Keine gespeicherte Session → Login-Dialog anzeigen
-        # Login-Dialog bekommt DB und Crypto
         login_dialog = LoginDialog(db_service, crypto_service)
         
         if login_dialog.exec() != QDialog.DialogCode.Accepted:
@@ -46,6 +45,7 @@ def main():
             is_admin=login_dialog.is_admin,
             remember=login_dialog.remember_login
         )
+    # else: Session wurde bereits in load_saved_session() wiederhergestellt
     
     # Hauptfenster mit Session, DB und Crypto starten
     window = MainWindow(session_service, db_service, crypto_service)

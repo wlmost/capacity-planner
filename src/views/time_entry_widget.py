@@ -500,6 +500,13 @@ class TimeEntryWidget(QWidget):
             if worker.active:
                 self.worker_combo.addItem(worker.name, worker.id)
         
+        # Single-Worker-Mode: Worker automatisch vorauswählen
+        if len(workers) == 1 and workers[0].active:
+            # Setze auf Index 1 (Index 0 ist "Wähle Worker...")
+            self.worker_combo.setCurrentIndex(1)
+            # Optional: Dropdown verstecken, da nur ein Worker
+            # self.worker_combo.setEnabled(False)
+        
         # Einträge-Liste aktualisieren
         self._refresh_entries_list()
         
