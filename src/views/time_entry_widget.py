@@ -341,9 +341,6 @@ class TimeEntryWidget(QWidget):
                 end_date.strftime("%Y-%m-%d")
             )
             
-            # Debug: Anzahl der Einträge loggen
-            print(f"DEBUG: Lade {len(entries)} Einträge aus der Datenbank")
-            
             # Sortiere nach Datum absteigend
             entries.sort(key=lambda e: e.date, reverse=True)
             
@@ -420,12 +417,8 @@ class TimeEntryWidget(QWidget):
                 self.entries_table.setCellWidget(row, 7, delete_button)
             
             self.entries_table.setSortingEnabled(True)
-            print(f"DEBUG: Tabelle aktualisiert mit {self.entries_table.rowCount()} Zeilen")
             
         except Exception as e:
-            import traceback
-            print(f"ERROR: Fehler beim Laden der Einträge: {str(e)}")
-            print(traceback.format_exc())
             self._show_status(f"Fehler beim Laden der Einträge: {str(e)}", "error")
     
     def _on_delete_entry(self, entry_id: int):

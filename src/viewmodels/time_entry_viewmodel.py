@@ -97,7 +97,6 @@ class TimeEntryViewModel(QObject):
             
             # In Datenbank speichern
             entry_id = self.repository.create(entry)
-            print(f"DEBUG ViewModel: Entry gespeichert mit ID {entry_id}, Datum: {date_str}, Worker: {worker_id}")
             
             # Signal emittieren
             self.entry_created.emit(entry_id)
@@ -105,9 +104,6 @@ class TimeEntryViewModel(QObject):
             return True
             
         except Exception as e:
-            import traceback
-            print(f"ERROR ViewModel: {str(e)}")
-            print(traceback.format_exc())
             error_msg = f"Fehler beim Erstellen der Zeiterfassung: {str(e)}"
             self.error_occurred.emit(error_msg)
             return False

@@ -41,7 +41,13 @@ class TimeEntryRepository(BaseRepository[TimeEntry]):
         ]
         
         query = self._execute_query(query_text, params)
-        return query.lastInsertId()
+        entry_id = query.lastInsertId()
+        
+        # Explizites Commit für sofortige Verfügbarkeit
+        if self.db_service.db:
+            self.db_service.db.commit()
+        
+        return entry_id
     
     def find_by_id(self, entry_id: int) -> Optional[TimeEntry]:
         """
@@ -115,7 +121,7 @@ class TimeEntryRepository(BaseRepository[TimeEntry]):
         """
         query_text = """
             SELECT * FROM time_entries 
-            WHERE date >= ? AND date <= ?
+            WHERE DATE(date) >= ? AND DATE(date) <= ?
             ORDER BY date DESC
         """
         params = [start_date, end_date]
@@ -124,7 +130,8 @@ class TimeEntryRepository(BaseRepository[TimeEntry]):
         
         entries = []
         while query.next():
-            entries.append(self._map_to_entity(query))
+            entry = self._map_to_entity(query)
+            entries.append(entry)
         
         return entries
     
