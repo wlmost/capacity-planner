@@ -2,20 +2,29 @@
 
 **Erstellt:** 06.10.2025  
 **Projekt:** Capacity Planner Sonnet  
-**Aktuelle Version:** v0.6.0  
-**Status:** � In Arbeit (Table Search 25%)
+**Aktuelle Version:** v0.7.0  
+**Status:** 🐛 Bugfix Release (Alle kritischen Bugs behoben!)
 
 ---
 
-## 📦 Kürzlich Abgeschlossen (v0.4.0 - v0.6.0)
+## 📦 Kürzlich Abgeschlossen (v0.4.0 - v0.7.0)
 
 | Version | Datum | Feature | Tests | Coverage | Dokumentation |
 |---------|-------|---------|-------|----------|---------------|
 | v0.4.0 | 07.10.2025 | PDF Export | 88 ✅ | 34% | pdf-export-implementation.md |
 | v0.5.0 | 07.10.2025 | Date Range Filter | 103 ✅ | 36% | date-filter-concept.md |
 | v0.6.0 | 07.10.2025 | Table Search (25%) | 124 ✅ | 37% | table-search-concept.md |
+| v0.7.0 | 08.10.2025 | Critical Bugfixes | 124 ✅ | 37% | ERRORS.md |
 
-**Highlights:**
+**Highlights v0.7.0:**
+- ✅ **Session-Persistenz** - Auto-Login funktioniert jetzt korrekt
+- ✅ **Logout-Flow** - Login-Dialog nach Logout führt nicht mehr zu App-Exit
+- ✅ **Time Entry Display** - Einträge erscheinen sofort in der Tabelle (Commit + DATE()-Fix)
+- ✅ **Worker Auto-Selection** - Worker wird im Single-Worker-Mode vorausgewählt
+- ✅ **Entries After Restart** - Einträge werden nach Neustart korrekt angezeigt
+- 📝 **ERRORS.md** - Vollständige Dokumentation aller Root Causes
+
+**Frühere Highlights:**
 - ✅ PDF-Export aus WorkerDetailDialog mit ReportLab
 - ✅ DateRangeWidget mit 8 Quick-Select Presets
 - 🔄 TableSearchWidget (wiederverwendbare Komponente, 1/4 Widgets integriert)
