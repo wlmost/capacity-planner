@@ -249,27 +249,47 @@ class CapacityWidget(QWidget):
             # ID
             id_item = QTableWidgetItem(str(capacity.id))
             id_item.setData(Qt.UserRole, capacity.id)
+            id_item.setFlags(id_item.flags() & ~Qt.ItemIsEditable)
             self._capacity_table.setItem(row, 0, id_item)
             
             # Worker
-            self._capacity_table.setItem(row, 1, QTableWidgetItem(worker_name))
+            worker_item = QTableWidgetItem(worker_name)
+            worker_item.setFlags(worker_item.flags() & ~Qt.ItemIsEditable)
+            self._capacity_table.setItem(row, 1, worker_item)
             
             # Start Date
             start_str = capacity.start_date.strftime("%d.%m.%Y")
-            self._capacity_table.setItem(row, 2, QTableWidgetItem(start_str))
+            start_item = QTableWidgetItem(start_str)
+            start_item.setFlags(start_item.flags() & ~Qt.ItemIsEditable)
+            self._capacity_table.setItem(row, 2, start_item)
             
             # End Date
             end_str = capacity.end_date.strftime("%d.%m.%Y")
-            self._capacity_table.setItem(row, 3, QTableWidgetItem(end_str))
+            end_item = QTableWidgetItem(end_str)
+            end_item.setFlags(end_item.flags() & ~Qt.ItemIsEditable)
+            self._capacity_table.setItem(row, 3, end_item)
             
             # Planned Hours
             hours_item = QTableWidgetItem(f"{capacity.planned_hours:.1f}h")
             hours_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            hours_item.setFlags(hours_item.flags() & ~Qt.ItemIsEditable)
             self._capacity_table.setItem(row, 4, hours_item)
             
-            # Utilization (placeholder)
-            util_item = QTableWidgetItem("-")
+            # Calculate and display utilization
+            utilization = self._calculate_capacity_utilization(capacity)
+            util_item = QTableWidgetItem(utilization['display'])
             util_item.setTextAlignment(Qt.AlignCenter)
+            util_item.setFlags(util_item.flags() & ~Qt.ItemIsEditable)
+            
+            # Color coding based on utilization
+            if utilization['percent'] is not None:
+                if utilization['percent'] < 80:
+                    util_item.setForeground(QColor("orange"))
+                elif utilization['percent'] <= 110:
+                    util_item.setForeground(QColor("green"))
+                else:
+                    util_item.setForeground(QColor("red"))
+            
             self._capacity_table.setItem(row, 5, util_item)
     
     def _clear_form(self):
@@ -325,6 +345,43 @@ class CapacityWidget(QWidget):
         self._hours_worked_label.setText("-")
         self._hours_planned_label.setText("-")
         self._utilization_label.setText("-")
+    
+    def _calculate_capacity_utilization(self, capacity: Capacity) -> dict:
+        """
+        Berechnet die Auslastung für eine einzelne Kapazität
+        
+        Args:
+            capacity: Die Kapazität für die die Auslastung berechnet werden soll
+            
+        Returns:
+            Dict mit 'percent' (float oder None) und 'display' (str)
+        """
+        try:
+            # Verwende den AnalyticsService zur Berechnung
+            utilization_data = self._viewmodel.calculate_utilization(
+                capacity.worker_id,
+                capacity.start_date,
+                capacity.end_date
+            )
+            
+            if utilization_data and utilization_data.get('hours_planned', 0) > 0:
+                percent = utilization_data['utilization_percent']
+                return {
+                    'percent': percent,
+                    'display': f"{percent:.1f}%"
+                }
+            else:
+                # Keine Daten oder keine geplanten Stunden
+                return {
+                    'percent': None,
+                    'display': "-"
+                }
+        except Exception:
+            # Bei Fehler einfach "-" anzeigen
+            return {
+                'percent': None,
+                'display': "-"
+            }
     
     def _calculate_utilization(self):
         """Berechnet die Auslastung für aktuellen Form-Zustand"""
