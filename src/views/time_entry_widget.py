@@ -34,6 +34,7 @@ class TimeEntryWidget(QWidget):
     """
     
     entry_saved = Signal(int)  # Emittiert Entry-ID
+    entry_updated = Signal(int)  # Emittiert Entry-ID
     entry_deleted = Signal(int)  # Emittiert Entry-ID
     
     def __init__(
@@ -55,6 +56,7 @@ class TimeEntryWidget(QWidget):
         self.time_entry_repository = time_entry_repository
         self._workers = []
         self._project_completer = None
+        self._editing_entry_id = None  # Speichert ID des zu bearbeitenden Eintrags
         
         self._setup_ui()
         self._connect_signals()
@@ -187,10 +189,10 @@ class TimeEntryWidget(QWidget):
         
         # Tabelle
         self.entries_table = QTableWidget()
-        self.entries_table.setColumnCount(8)
+        self.entries_table.setColumnCount(9)
         self.entries_table.setHorizontalHeaderLabels([
             "Datum", "Worker", "Typ", "Projekt", "Kategorie", 
-            "Beschreibung", "Dauer", "Aktion"
+            "Beschreibung", "Dauer", "Aktionen", ""
         ])
         self.entries_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.entries_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
@@ -206,6 +208,7 @@ class TimeEntryWidget(QWidget):
         """Verbindet Signals mit Slots"""
         # ViewModel Signals
         self.viewmodel.entry_created.connect(self._on_entry_created)
+        self.viewmodel.entry_updated.connect(self._on_entry_updated)
         self.viewmodel.validation_failed.connect(self._on_validation_failed)
         self.viewmodel.error_occurred.connect(self._on_error_occurred)
     
@@ -252,8 +255,15 @@ class TimeEntryWidget(QWidget):
         elif category:
             project = category
         
-        # ViewModel aufrufen
-        self.viewmodel.create_entry(worker_id, date_str, time_str, description, project)
+        # Prüfen ob wir im Edit-Modus sind
+        if self._editing_entry_id is not None:
+            # Update-Modus
+            self.viewmodel.update_entry(
+                self._editing_entry_id, worker_id, date_str, time_str, description, project
+            )
+        else:
+            # Create-Modus
+            self.viewmodel.create_entry(worker_id, date_str, time_str, description, project)
     
     def _on_entry_created(self, entry_id: int):
         """
@@ -266,6 +276,18 @@ class TimeEntryWidget(QWidget):
         self._clear_form()
         self._refresh_entries_list()
         self.entry_saved.emit(entry_id)
+    
+    def _on_entry_updated(self, entry_id: int):
+        """
+        Erfolgreiche Aktualisierung
+        
+        Args:
+            entry_id: ID des aktualisierten Eintrags
+        """
+        self._show_status(f"✓ Zeiterfassung erfolgreich aktualisiert (ID: {entry_id})", "success")
+        self._clear_form()
+        self._refresh_entries_list()
+        self.entry_updated.emit(entry_id)
     
     def _on_validation_failed(self, errors: list):
         """
@@ -293,7 +315,7 @@ class TimeEntryWidget(QWidget):
         
         Args:
             message: Nachricht
-            status_type: "success" oder "error"
+            status_type: "success", "error" oder "info"
         """
         self.status_label.setText(message)
         
@@ -302,6 +324,14 @@ class TimeEntryWidget(QWidget):
                 background-color: #d4edda;
                 color: #155724;
                 border: 1px solid #c3e6cb;
+                border-radius: 4px;
+                padding: 10px;
+            """)
+        elif status_type == "info":
+            self.status_label.setStyleSheet("""
+                background-color: #d1ecf1;
+                color: #0c5460;
+                border: 1px solid #bee5eb;
                 border-radius: 4px;
                 padding: 10px;
             """)
@@ -318,6 +348,7 @@ class TimeEntryWidget(QWidget):
     
     def _clear_form(self):
         """Setzt Formular zurück"""
+        self._editing_entry_id = None  # Edit-Modus beenden
         self.worker_combo.setCurrentIndex(0)
         self.date_edit.setDate(QDate.currentDate())
         self.type_combo.setCurrentIndex(0)
@@ -327,6 +358,7 @@ class TimeEntryWidget(QWidget):
         self.description_input.clear()
         self.status_label.setVisible(False)
         self.time_input.setFocus()
+        self.save_button.setText("💾 Speichern")  # Button-Text zurücksetzen
     
     def _refresh_entries_list(self):
         """Aktualisiert die Liste der Zeitbuchungen"""
@@ -399,6 +431,29 @@ class TimeEntryWidget(QWidget):
                 duration_item = QTableWidgetItem(duration_str)
                 self.entries_table.setItem(row, 6, duration_item)
                 
+                # Aktionen-Widget mit Edit und Delete Buttons
+                actions_widget = QWidget()
+                actions_layout = QHBoxLayout(actions_widget)
+                actions_layout.setContentsMargins(2, 2, 2, 2)
+                actions_layout.setSpacing(5)
+                
+                # Bearbeiten-Button
+                edit_button = QPushButton("✏️ Bearbeiten")
+                edit_button.clicked.connect(lambda checked, e=entry: self._on_edit_entry(e))
+                edit_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #007bff;
+                        color: white;
+                        border: none;
+                        padding: 5px 10px;
+                        border-radius: 3px;
+                    }
+                    QPushButton:hover {
+                        background-color: #0056b3;
+                    }
+                """)
+                actions_layout.addWidget(edit_button)
+                
                 # Löschen-Button
                 delete_button = QPushButton("🗑️ Löschen")
                 delete_button.clicked.connect(lambda checked, e_id=entry.id: self._on_delete_entry(e_id))
@@ -414,7 +469,9 @@ class TimeEntryWidget(QWidget):
                         background-color: #c82333;
                     }
                 """)
-                self.entries_table.setCellWidget(row, 7, delete_button)
+                actions_layout.addWidget(delete_button)
+                
+                self.entries_table.setCellWidget(row, 7, actions_widget)
             
             self.entries_table.setSortingEnabled(True)
             
@@ -447,6 +504,76 @@ class TimeEntryWidget(QWidget):
                     self._show_status(f"✗ Eintrag {entry_id} konnte nicht gelöscht werden", "error")
             except Exception as e:
                 self._show_status(f"✗ Fehler beim Löschen: {str(e)}", "error")
+    
+    def _on_edit_entry(self, entry):
+        """
+        Lädt Eintrag zum Bearbeiten in das Formular
+        
+        Args:
+            entry: TimeEntry-Objekt
+        """
+        try:
+            # Edit-Modus aktivieren
+            self._editing_entry_id = entry.id
+            
+            # Worker auswählen
+            for i in range(self.worker_combo.count()):
+                if self.worker_combo.itemData(i) == entry.worker_id:
+                    self.worker_combo.setCurrentIndex(i)
+                    break
+            
+            # Datum setzen
+            self.date_edit.setDate(QDate(entry.date.year, entry.date.month, entry.date.day))
+            
+            # Typ und Beschreibung extrahieren
+            description = entry.description
+            entry_type = "Arbeit"
+            if description.startswith("["):
+                end_bracket = description.find("]")
+                if end_bracket > 0:
+                    entry_type = description[1:end_bracket]
+                    description = description[end_bracket+1:].strip()
+            
+            # Typ setzen
+            type_index = self.type_combo.findText(entry_type)
+            if type_index >= 0:
+                self.type_combo.setCurrentIndex(type_index)
+            
+            # Projekt und Kategorie trennen
+            project = entry.project or ""
+            category = ""
+            if " - " in project:
+                project, category = project.split(" - ", 1)
+            
+            # Projekt setzen
+            if project:
+                self.project_input.setCurrentText(project)
+            else:
+                self.project_input.clearEditText()
+            
+            # Kategorie setzen
+            self.category_input.setText(category)
+            
+            # Dauer setzen (in Format h:mm)
+            hours = entry.duration_minutes // 60
+            minutes = entry.duration_minutes % 60
+            time_str = f"{hours}:{minutes:02d}"
+            self.time_input.setText(time_str)
+            
+            # Beschreibung setzen
+            self.description_input.setPlainText(description)
+            
+            # Button-Text ändern
+            self.save_button.setText("💾 Aktualisieren")
+            
+            # Status anzeigen
+            self._show_status(f"ℹ️ Bearbeite Eintrag (ID: {entry.id})", "info")
+            
+            # Fokus auf Beschreibung setzen
+            self.description_input.setFocus()
+            
+        except Exception as e:
+            self._show_status(f"✗ Fehler beim Laden des Eintrags: {str(e)}", "error")
     
     def _update_project_completer(self):
         """Aktualisiert Autovervollständigung für Projekte"""

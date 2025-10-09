@@ -33,6 +33,7 @@ class TimeEntryViewModel(QObject):
     
     # Signals
     entry_created = Signal(int)  # Emittiert Entry-ID
+    entry_updated = Signal(int)  # Emittiert Entry-ID
     validation_failed = Signal(list)  # Emittiert Fehler-Liste
     error_occurred = Signal(str)  # Emittiert Fehlermeldung
     
@@ -176,3 +177,66 @@ class TimeEntryViewModel(QObject):
             Formatierter String
         """
         return self.time_parser.format_minutes(minutes, format_type)
+    
+    def update_entry(
+        self,
+        entry_id: int,
+        worker_id: int,
+        date_str: str,
+        time_str: str,
+        description: str,
+        project: Optional[str] = None
+    ) -> bool:
+        """
+        Aktualisiert bestehende Zeiterfassung
+        
+        Args:
+            entry_id: ID des zu aktualisierenden Eintrags
+            worker_id: ID des Workers
+            date_str: Datum im Format YYYY-MM-DD
+            time_str: Zeit in beliebigem Format (1:30, 90m, etc.)
+            description: Beschreibung der Tätigkeit
+            project: Optional: Projekt-Zuordnung
+            
+        Returns:
+            True bei Erfolg, False bei Fehler
+        """
+        # Validierung
+        errors = self.validate_input(worker_id, date_str, time_str, description)
+        if errors:
+            self.validation_failed.emit(errors)
+            return False
+        
+        try:
+            # Zeit parsen
+            duration_minutes = self.time_parser.parse(time_str)
+            
+            # Datum parsen
+            date = datetime.fromisoformat(date_str)
+            
+            # TimeEntry erstellen
+            entry = TimeEntry(
+                id=entry_id,
+                worker_id=worker_id,
+                date=date,
+                duration_minutes=duration_minutes,
+                description=description.strip(),
+                project=project.strip() if project else None
+            )
+            
+            # In Datenbank aktualisieren
+            success = self.repository.update(entry)
+            
+            if success:
+                # Signal emittieren
+                self.entry_updated.emit(entry_id)
+                return True
+            else:
+                error_msg = "Eintrag konnte nicht aktualisiert werden"
+                self.error_occurred.emit(error_msg)
+                return False
+            
+        except Exception as e:
+            error_msg = f"Fehler beim Aktualisieren der Zeiterfassung: {str(e)}"
+            self.error_occurred.emit(error_msg)
+            return False
