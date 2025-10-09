@@ -95,7 +95,7 @@ self.project_input.setCompleter(completer)
 5. **Kategorie** - Kategorie (falls vorhanden)
 6. **Beschreibung** - Gekürzt auf 50 Zeichen
 7. **Dauer** - Format: "90m (1.50h)"
-8. **Aktion** - 🗑️ Löschen-Button
+8. **Aktionen** - ✏️ **Bearbeiten** und 🗑️ **Löschen** Buttons
 
 #### **Funktionen:**
 - ✅ **Sortierbar**: Klick auf Spalten-Header sortiert
@@ -106,10 +106,10 @@ self.project_input.setCompleter(completer)
 #### **Code-Beispiel: Tabellen-Setup**
 ```python
 self.entries_table = QTableWidget()
-self.entries_table.setColumnCount(8)
+self.entries_table.setColumnCount(9)
 self.entries_table.setHorizontalHeaderLabels([
     "Datum", "Worker", "Typ", "Projekt", "Kategorie", 
-    "Beschreibung", "Dauer", "Aktion"
+    "Beschreibung", "Dauer", "Aktionen", ""
 ])
 self.entries_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 self.entries_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
@@ -156,7 +156,104 @@ def _on_delete_entry(self, entry_id: int):
 
 ---
 
-### 5. **Projekt-Autovervollständigung**
+### 5. **Bearbeiten-Funktionalität** ✨ **NEU**
+
+#### **Workflow:**
+1. User klickt auf **✏️ Bearbeiten**-Button in Zeile
+2. Eintrag wird in das Formular geladen
+3. User kann alle Felder anpassen
+4. Bei Klick auf **💾 Aktualisieren** wird der Eintrag gespeichert
+5. Liste wird automatisch aktualisiert
+6. `entry_updated` Signal wird emittiert
+
+#### **Features:**
+- ✅ **Alle Felder editierbar**: Worker, Datum, Typ, Projekt, Kategorie, Beschreibung, Dauer
+- ✅ **Visuelles Feedback**: Button-Text ändert sich zu "Aktualisieren"
+- ✅ **Info-Status**: Zeigt an, welcher Eintrag bearbeitet wird
+- ✅ **Abbrechen möglich**: "Zurücksetzen"-Button beendet Edit-Modus
+
+#### **Code-Beispiel: Eintrag in Formular laden**
+```python
+def _on_edit_entry(self, entry):
+    """Lädt Eintrag zum Bearbeiten in das Formular"""
+    # Edit-Modus aktivieren
+    self._editing_entry_id = entry.id
+    
+    # Worker auswählen
+    for i in range(self.worker_combo.count()):
+        if self.worker_combo.itemData(i) == entry.worker_id:
+            self.worker_combo.setCurrentIndex(i)
+            break
+    
+    # Datum setzen
+    self.date_edit.setDate(QDate(entry.date.year, entry.date.month, entry.date.day))
+    
+    # Typ und Beschreibung extrahieren
+    description = entry.description
+    entry_type = "Arbeit"
+    if description.startswith("["):
+        end_bracket = description.find("]")
+        if end_bracket > 0:
+            entry_type = description[1:end_bracket]
+            description = description[end_bracket+1:].strip()
+    
+    # ... weitere Felder setzen ...
+    
+    # Button-Text ändern
+    self.save_button.setText("💾 Aktualisieren")
+```
+
+#### **Code-Beispiel: TimeEntryViewModel.update_entry()**
+```python
+def update_entry(
+    self,
+    entry_id: int,
+    worker_id: int,
+    date_str: str,
+    time_str: str,
+    description: str,
+    project: Optional[str] = None
+) -> bool:
+    """Aktualisiert bestehende Zeiterfassung"""
+    # Validierung
+    errors = self.validate_input(worker_id, date_str, time_str, description)
+    if errors:
+        self.validation_failed.emit(errors)
+        return False
+    
+    try:
+        # Zeit und Datum parsen
+        duration_minutes = self.time_parser.parse(time_str)
+        date = datetime.fromisoformat(date_str)
+        
+        # TimeEntry erstellen
+        entry = TimeEntry(
+            id=entry_id,
+            worker_id=worker_id,
+            date=date,
+            duration_minutes=duration_minutes,
+            description=description.strip(),
+            project=project.strip() if project else None
+        )
+        
+        # In Datenbank aktualisieren
+        success = self.repository.update(entry)
+        
+        if success:
+            self.entry_updated.emit(entry_id)
+            return True
+        else:
+            self.error_occurred.emit("Eintrag konnte nicht aktualisiert werden")
+            return False
+            
+    except Exception as e:
+        self.error_occurred.emit(f"Fehler beim Aktualisieren: {str(e)}")
+        return False
+```
+
+---
+
+### 6. **Projekt-Autovervollständigung**
 
 #### **Funktionsweise:**
 1. Lädt alle Einträge der letzten 12 Monate
@@ -204,7 +301,7 @@ def _update_project_completer(self):
 
 ---
 
-### 6. **Neue Repository-Methode**
+### 7. **Neue Repository-Methode**
 
 #### **TimeEntryRepository.find_by_date_range()**
 
@@ -246,8 +343,9 @@ def find_by_date_range(
 
 ### **Trigger:**
 1. ✅ Nach erfolgreicher Speicherung (`_on_entry_created`)
-2. ✅ Nach erfolgreichem Löschen (`_on_delete_entry`)
-3. ✅ Beim Laden der Workers (`load_workers`)
+2. ✅ Nach erfolgreicher Aktualisierung (`_on_entry_updated`) ✨ **NEU**
+3. ✅ Nach erfolgreichem Löschen (`_on_delete_entry`)
+4. ✅ Beim Laden der Workers (`load_workers`)
 
 ### **Ablauf:**
 ```python
@@ -305,12 +403,12 @@ self.time_entry_widget = TimeEntryWidget(
 
 ### **Typ-Speicherung:**
 - Typ wird in Beschreibung eingebettet: `[Urlaub] Beschreibungstext`
-- Beim Laden wird Typ extrahiert und separat angezeigt
+- Beim Laden/Bearbeiten wird Typ extrahiert und separat angezeigt ✨ **ERWEITERT**
 - Standard: "Arbeit" (wenn kein Typ-Prefix vorhanden)
 
 ### **Projekt & Kategorie:**
 - Gespeichert als: `"Projektname - Kategorie"`
-- Beim Laden wird getrennt: `project, category = project.split(" - ", 1)`
+- Beim Laden/Bearbeiten wird getrennt: `project, category = project.split(" - ", 1)` ✨ **ERWEITERT**
 - Ermöglicht separate Filterung/Anzeige
 
 ---
@@ -321,11 +419,15 @@ self.time_entry_widget = TimeEntryWidget(
 - 💾 Speichern-Button
 - 🔄 Zurücksetzen-Button
 - 📋 Listen-Titel
+- ✏️ **Bearbeiten-Button** ✨ **NEU**
 - 🗑️ Löschen-Button
 
 ### **Farben:**
 - **Erfolg**: Grün (#d4edda)
 - **Fehler**: Rot (#f8d7da)
+- **Info**: Blau (#d1ecf1) ✨ **NEU**
+- **Bearbeiten-Button**: Blau (#007bff) ✨ **NEU**
+- **Bearbeiten-Hover**: Dunkleres Blau (#0056b3) ✨ **NEU**
 - **Löschen-Button**: Rot (#dc3545)
 - **Hover-Effekt**: Dunkleres Rot (#c82333)
 
@@ -338,15 +440,17 @@ self.time_entry_widget = TimeEntryWidget(
 - ✅ Alle neuen Felder werden gespeichert
 - ✅ Liste zeigt Einträge der letzten 30 Tage
 - ✅ Sortierung funktioniert (Klick auf Header)
+- ✅ **Bearbeiten lädt Eintrag korrekt** ✨ **NEU**
+- ✅ **Update speichert Änderungen** ✨ **NEU**
 - ✅ Löschen mit Bestätigung funktioniert
-- ✅ Auto-Refresh nach Speichern/Löschen
+- ✅ Auto-Refresh nach Speichern/Bearbeiten/Löschen
 - ✅ Projekt-Autocomplete funktioniert
 - ✅ Splitter ist verschiebbar
 
 ### **Unit-Tests:**
-- ✅ **79/79 Tests bestehen** (100%)
-- ✅ Keine neuen Tests nötig (UI-Change, ViewModel unverändert)
-- ✅ Coverage: 30%
+- ✅ **Tests für update_entry** ✨ **NEU**
+- ✅ Alle bestehenden Tests bestehen weiterhin
+- ✅ ViewModel-Update-Logik getestet
 
 ---
 
@@ -354,17 +458,19 @@ self.time_entry_widget = TimeEntryWidget(
 
 | Metrik | Vorher | Nachher | Änderung |
 |--------|--------|---------|----------|
-| **TimeEntryWidget Zeilen** | ~250 | ~507 | +257 (+103%) |
+| **TimeEntryWidget Zeilen** | ~250 | ~641 | +391 (+156%) |
+| **TimeEntryViewModel Zeilen** | ~109 | ~242 | +133 (+122%) |
 | **Formularfelder** | 5 | 7 | +2 |
-| **UI-Features** | Formular | Formular + Liste | +Liste |
-| **Interaktivität** | Nur Eingabe | Eingabe + Anzeige + Löschen | +++++ |
+| **UI-Features** | Formular | Formular + Liste + **Edit** | +Liste +Edit |
+| **Interaktivität** | Nur Eingabe | Eingabe + Anzeige + **Bearbeiten** + Löschen | +++++ |
 | **Repository-Methoden** | 5 | 6 | +1 |
+| **Signals** | 2 | 3 | +1 (entry_updated) |
 
 ---
 
 ## 🔮 **Mögliche Erweiterungen**
 
-1. **Bearbeiten-Funktion**: Edit-Button pro Zeile zum Ändern von Einträgen
+1. ~~**Bearbeiten-Funktion**: Edit-Button pro Zeile zum Ändern von Einträgen~~ ✅ **IMPLEMENTIERT**
 2. **Erweiterte Filter**: Filter nach Worker, Typ, Projekt, Datum
 3. **Export**: CSV/Excel-Export der Zeitbuchungen-Liste
 4. **Statistiken**: Summen anzeigen (Gesamt-Stunden, pro Projekt, etc.)
@@ -379,9 +485,9 @@ self.time_entry_widget = TimeEntryWidget(
 Das überarbeitete `TimeEntryWidget` bietet:
 
 ✅ **Bessere UX** durch Split-View und direkte Liste  
-✅ **Mehr Features** (Typ, Kategorie, Autocomplete, Löschen)  
+✅ **Mehr Features** (Typ, Kategorie, Autocomplete, Löschen, **Bearbeiten**)  
 ✅ **Sofortiges Feedback** durch Auto-Refresh  
 ✅ **Professionelles Design** mit Icons und Farben  
-✅ **Robuste Implementierung** mit 79 Tests  
+✅ **Robuste Implementierung** mit Tests  
 
 **Status:** ✅ **PRODUCTION READY**
