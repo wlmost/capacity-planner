@@ -20,6 +20,12 @@ def mock_viewmodel():
     viewmodel.get_active_workers = Mock(return_value=[])
     viewmodel.load_all_capacities = Mock()
     viewmodel.calculate_utilization = Mock(return_value=None)
+    
+    # Mock _analytics_service für direkten Zugriff
+    mock_analytics = Mock()
+    mock_analytics.calculate_worker_utilization = Mock(return_value=None)
+    viewmodel._analytics_service = mock_analytics
+    
     return viewmodel
 
 
@@ -70,7 +76,7 @@ class TestCapacityWidgetTablePopulation:
         """Test: Tabellenzellen sind nicht editierbar"""
         # Setup
         capacity_widget._workers = sample_workers
-        capacity_widget._viewmodel.calculate_utilization = Mock(return_value={
+        capacity_widget._viewmodel._analytics_service.calculate_worker_utilization = Mock(return_value={
             'hours_worked': 150.0,
             'hours_planned': 160.0,
             'utilization_percent': 93.75
@@ -92,7 +98,7 @@ class TestCapacityWidgetTablePopulation:
         """Test: Auslastung wird in der Tabelle angezeigt"""
         # Setup
         capacity_widget._workers = sample_workers
-        capacity_widget._viewmodel.calculate_utilization = Mock(return_value={
+        capacity_widget._viewmodel._analytics_service.calculate_worker_utilization = Mock(return_value={
             'hours_worked': 150.0,
             'hours_planned': 160.0,
             'utilization_percent': 93.75
@@ -120,7 +126,7 @@ class TestCapacityWidgetTablePopulation:
             end_date=datetime(2024, 1, 31),
             planned_hours=160.0
         )
-        capacity_widget._viewmodel.calculate_utilization = Mock(return_value={
+        capacity_widget._viewmodel._analytics_service.calculate_worker_utilization = Mock(return_value={
             'hours_worked': 150.0,
             'hours_planned': 160.0,
             'utilization_percent': 93.75
@@ -143,7 +149,7 @@ class TestCapacityWidgetTablePopulation:
             end_date=datetime(2024, 1, 31),
             planned_hours=160.0
         )
-        capacity_widget._viewmodel.calculate_utilization = Mock(return_value={
+        capacity_widget._viewmodel._analytics_service.calculate_worker_utilization = Mock(return_value={
             'hours_worked': 0.0,
             'hours_planned': 0.0,
             'utilization_percent': 0.0
@@ -166,7 +172,7 @@ class TestCapacityWidgetTablePopulation:
             end_date=datetime(2024, 1, 31),
             planned_hours=160.0
         )
-        capacity_widget._viewmodel.calculate_utilization = Mock(side_effect=Exception("Test Error"))
+        capacity_widget._viewmodel._analytics_service.calculate_worker_utilization = Mock(side_effect=Exception("Test Error"))
         
         # Execute
         result = capacity_widget._calculate_capacity_utilization(capacity)
@@ -183,7 +189,7 @@ class TestCapacityWidgetUtilizationColors:
         """Test: Niedrige Auslastung (<80%) wird orange dargestellt"""
         # Setup
         capacity_widget._workers = sample_workers
-        capacity_widget._viewmodel.calculate_utilization = Mock(return_value={
+        capacity_widget._viewmodel._analytics_service.calculate_worker_utilization = Mock(return_value={
             'hours_worked': 120.0,
             'hours_planned': 160.0,
             'utilization_percent': 75.0
@@ -200,7 +206,7 @@ class TestCapacityWidgetUtilizationColors:
         """Test: Normale Auslastung (80-110%) wird grün dargestellt"""
         # Setup
         capacity_widget._workers = sample_workers
-        capacity_widget._viewmodel.calculate_utilization = Mock(return_value={
+        capacity_widget._viewmodel._analytics_service.calculate_worker_utilization = Mock(return_value={
             'hours_worked': 150.0,
             'hours_planned': 160.0,
             'utilization_percent': 93.75
@@ -217,7 +223,7 @@ class TestCapacityWidgetUtilizationColors:
         """Test: Hohe Auslastung (>110%) wird rot dargestellt"""
         # Setup
         capacity_widget._workers = sample_workers
-        capacity_widget._viewmodel.calculate_utilization = Mock(return_value={
+        capacity_widget._viewmodel._analytics_service.calculate_worker_utilization = Mock(return_value={
             'hours_worked': 180.0,
             'hours_planned': 160.0,
             'utilization_percent': 112.5

@@ -357,8 +357,10 @@ class CapacityWidget(QWidget):
             Dict mit 'percent' (float oder None) und 'display' (str)
         """
         try:
-            # Verwende den AnalyticsService zur Berechnung
-            utilization_data = self._viewmodel.calculate_utilization(
+            # Direkter Aufruf des AnalyticsService ohne Signal-Emission
+            # um Probleme mit dem Form-Panel zu vermeiden
+            analytics_service = self._viewmodel._analytics_service
+            utilization_data = analytics_service.calculate_worker_utilization(
                 capacity.worker_id,
                 capacity.start_date,
                 capacity.end_date
