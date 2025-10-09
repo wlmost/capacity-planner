@@ -318,7 +318,11 @@ class TimeEntryWidget(QWidget):
     
     def _clear_form(self):
         """Setzt Formular zurück"""
-        self.worker_combo.setCurrentIndex(0)
+        # Worker-Auswahl NUR zurücksetzen wenn mehr als 1 Worker
+        # Im Single-Worker-Mode bleibt die Auswahl erhalten
+        if self.worker_combo.count() > 2:  # "Wähle Worker..." + mindestens 2 Worker
+            self.worker_combo.setCurrentIndex(0)
+        
         self.date_edit.setDate(QDate.currentDate())
         self.type_combo.setCurrentIndex(0)
         self.project_input.clearEditText()
