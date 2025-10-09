@@ -168,3 +168,80 @@ class TestTimeEntryViewModel:
         result = viewmodel.format_duration(90, "decimal")
         
         assert result == "1.50h"
+    
+    # Tests für update_entry
+    def test_update_entry_with_valid_data(self, viewmodel, repository):
+        """Test: Update sollte Entry aktualisieren"""
+        # Arrange
+        entry_id = 1
+        worker_id = 1
+        date_str = "2025-10-06"
+        time_str = "2:00"
+        description = "Updated Meeting"
+        
+        repository.update = MagicMock(return_value=True)
+        
+        # Act
+        result = viewmodel.update_entry(entry_id, worker_id, date_str, time_str, description)
+        
+        # Assert
+        assert result is True
+        repository.update.assert_called_once()
+        
+        # Verify updated entry
+        updated_entry = repository.update.call_args[0][0]
+        assert updated_entry.id == entry_id
+        assert updated_entry.worker_id == worker_id
+        assert updated_entry.duration_minutes == 120
+        assert updated_entry.description == description
+    
+    def test_update_entry_with_optional_project(self, viewmodel, repository):
+        """Test: Update sollte optional project speichern"""
+        repository.update = MagicMock(return_value=True)
+        
+        result = viewmodel.update_entry(1, 1, "2025-10-06", "1:30", "Test", project="Project Y")
+        
+        assert result is True
+        updated_entry = repository.update.call_args[0][0]
+        assert updated_entry.project == "Project Y"
+    
+    def test_update_entry_with_validation_errors(self, viewmodel, repository):
+        """Test: Update sollte bei Validierungsfehlern False zurückgeben"""
+        repository.update = MagicMock(return_value=True)
+        
+        result = viewmodel.update_entry(1, 0, "2025-10-06", "1:30", "Test")
+        
+        assert result is False
+        repository.update.assert_not_called()
+    
+    def test_update_entry_handles_repository_error(self, viewmodel, repository, qtbot):
+        """Test: Repository-Fehler bei Update sollten abgefangen werden"""
+        repository.update = MagicMock(side_effect=Exception("Database error"))
+        
+        with qtbot.waitSignal(viewmodel.error_occurred, timeout=1000) as blocker:
+            result = viewmodel.update_entry(1, 1, "2025-10-06", "1:30", "Test")
+        
+        assert result is False
+        assert blocker.signal_triggered
+        assert "Database error" in blocker.args[0]
+    
+    def test_update_entry_emits_signal_on_success(self, viewmodel, repository, qtbot):
+        """Test: entry_updated Signal wird bei Erfolg emittiert"""
+        repository.update = MagicMock(return_value=True)
+        
+        with qtbot.waitSignal(viewmodel.entry_updated, timeout=1000) as blocker:
+            viewmodel.update_entry(1, 1, "2025-10-06", "1:30", "Test")
+        
+        assert blocker.signal_triggered
+        assert blocker.args[0] == 1  # Entry ID
+    
+    def test_update_entry_returns_false_when_update_fails(self, viewmodel, repository, qtbot):
+        """Test: Update sollte False zurückgeben wenn Repository False zurückgibt"""
+        repository.update = MagicMock(return_value=False)
+        
+        with qtbot.waitSignal(viewmodel.error_occurred, timeout=1000) as blocker:
+            result = viewmodel.update_entry(1, 1, "2025-10-06", "1:30", "Test")
+        
+        assert result is False
+        assert blocker.signal_triggered
+
