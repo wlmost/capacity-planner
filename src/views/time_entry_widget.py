@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QMessageBox, QSplitter,
     QTableWidget, QTableWidgetItem, QHeaderView, QCompleter
 )
-from PySide6.QtCore import Qt, QDate, Signal
+from PySide6.QtCore import Qt, QDate, Signal, QSettings
 from PySide6.QtGui import QFont
 from typing import Optional, List
 
@@ -106,7 +106,20 @@ class TimeEntryWidget(QWidget):
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setDate(QDate.currentDate())
         self.date_edit.setDisplayFormat("dd.MM.yyyy")
-        form_layout.addRow("Datum:", self.date_edit)
+        self.date_label = QLabel("Datum:")
+        form_layout.addRow(self.date_label, self.date_edit)
+        
+        # End-Datum (DateEdit) - nur für Urlaub sichtbar
+        self.end_date_edit = QDateEdit()
+        self.end_date_edit.setCalendarPopup(True)
+        self.end_date_edit.setDate(QDate.currentDate())
+        self.end_date_edit.setDisplayFormat("dd.MM.yyyy")
+        self.end_date_label = QLabel("Datum (Bis):")
+        form_layout.addRow(self.end_date_label, self.end_date_edit)
+        
+        # Initial verstecken (nur bei Urlaub sichtbar)
+        self.end_date_edit.setVisible(False)
+        self.end_date_label.setVisible(False)
         
         # Typ (Combobox: Arbeit, Urlaub, Abwesenheit)
         self.type_combo = QComboBox()
@@ -208,6 +221,16 @@ class TimeEntryWidget(QWidget):
         self.viewmodel.entry_created.connect(self._on_entry_created)
         self.viewmodel.validation_failed.connect(self._on_validation_failed)
         self.viewmodel.error_occurred.connect(self._on_error_occurred)
+        
+        # Typ-Änderung für Urlaubs-Logik
+        self.type_combo.currentIndexChanged.connect(self._on_type_changed)
+        
+        # Datumsänderungen für automatische Dauer-Berechnung
+        self.date_edit.dateChanged.connect(self._on_date_changed)
+        self.end_date_edit.dateChanged.connect(self._on_date_changed)
+        
+        # Worker-Änderung für Regelarbeitszeit
+        self.worker_combo.currentIndexChanged.connect(self._on_worker_changed)
     
     def _on_time_input_changed(self, text: str):
         """
@@ -216,6 +239,10 @@ class TimeEntryWidget(QWidget):
         Args:
             text: Eingegebener Text
         """
+        # Bei Urlaub wird Dauer automatisch berechnet
+        if self.type_combo.currentText() == "Urlaub":
+            return
+        
         if not text:
             self.time_preview.setText("")
             return
@@ -230,6 +257,129 @@ class TimeEntryWidget(QWidget):
         else:
             self.time_preview.setText("✗ Ungültiges Format")
             self.time_preview.setStyleSheet("color: red; font-style: italic;")
+    
+    def _on_type_changed(self, index: int):
+        """
+        Wird aufgerufen wenn Typ geändert wird
+        
+        Args:
+            index: Index des ausgewählten Typs
+        """
+        entry_type = self.type_combo.currentText()
+        
+        if entry_type == "Urlaub":
+            # End-Datum-Feld anzeigen
+            self.end_date_edit.setVisible(True)
+            self.end_date_label.setVisible(True)
+            
+            # Datum-Label ändern
+            self.date_label.setText("Datum (Von):")
+            
+            # Dauer-Feld readonly machen (wird automatisch berechnet)
+            self.time_input.setReadOnly(True)
+            self.time_input.setStyleSheet("background-color: #f0f0f0;")
+            
+            # Dauer automatisch berechnen
+            self._calculate_vacation_duration()
+            
+        else:
+            # End-Datum-Feld verstecken
+            self.end_date_edit.setVisible(False)
+            self.end_date_label.setVisible(False)
+            
+            # Datum-Label zurücksetzen
+            self.date_label.setText("Datum:")
+            
+            # Dauer-Feld wieder editierbar
+            self.time_input.setReadOnly(False)
+            self.time_input.setStyleSheet("")
+            self.time_input.clear()
+            self.time_preview.setText("")
+    
+    def _on_date_changed(self):
+        """Wird aufgerufen wenn ein Datum geändert wird"""
+        if self.type_combo.currentText() == "Urlaub":
+            self._calculate_vacation_duration()
+    
+    def _on_worker_changed(self, index: int):
+        """Wird aufgerufen wenn Worker geändert wird"""
+        if self.type_combo.currentText() == "Urlaub":
+            self._calculate_vacation_duration()
+    
+    def _calculate_vacation_duration(self):
+        """Berechnet und setzt Urlaubsdauer automatisch"""
+        if self.type_combo.currentText() != "Urlaub":
+            return
+        
+        # Worker-ID holen
+        worker_id = self.worker_combo.currentData()
+        if not worker_id:
+            self.time_input.clear()
+            self.time_preview.setText("")
+            return
+        
+        # Datumsbereich
+        start_date = self.date_edit.date()
+        end_date = self.end_date_edit.date()
+        
+        # Validierung
+        if end_date < start_date:
+            self.time_preview.setText("⚠️ End-Datum muss >= Start-Datum sein")
+            self.time_preview.setStyleSheet("color: red; font-style: italic;")
+            self.time_input.clear()
+            return
+        
+        # Regelarbeitszeit laden
+        daily_hours = self._get_daily_hours_for_worker(worker_id)
+        
+        # Dauer berechnen
+        duration_minutes = self._count_workdays(start_date, end_date) * daily_hours * 60
+        
+        # Werktage für Anzeige
+        workdays = int(duration_minutes / (daily_hours * 60))
+        
+        # Dauer-Feld setzen
+        hours = duration_minutes / 60.0
+        self.time_input.setText(f"{hours}h")
+        
+        # Preview aktualisieren
+        self.time_preview.setText(f"ℹ️ {workdays} Werktage × {daily_hours}h/Tag")
+        self.time_preview.setStyleSheet("color: #666; font-style: italic;")
+    
+    def _count_workdays(self, start_date: QDate, end_date: QDate) -> int:
+        """
+        Zählt Werktage (Mo-Fr) zwischen zwei Daten
+        
+        Args:
+            start_date: Start-Datum (inklusiv)
+            end_date: End-Datum (inklusiv)
+            
+        Returns:
+            Anzahl der Werktage
+        """
+        workdays = 0
+        current = start_date
+        
+        while current <= end_date:
+            # Qt dayOfWeek: 1=Montag, 7=Sonntag
+            if current.dayOfWeek() <= 5:  # Mo-Fr
+                workdays += 1
+            current = current.addDays(1)
+        
+        return workdays
+    
+    def _get_daily_hours_for_worker(self, worker_id: int) -> float:
+        """
+        Lädt Regelarbeitszeit für Worker aus QSettings
+        
+        Args:
+            worker_id: ID des Workers
+            
+        Returns:
+            Regelarbeitszeit in Stunden (Standard: 8.0)
+        """
+        settings = QSettings("CapacityPlanner", "Settings")
+        return settings.value(f"worker_{worker_id}_daily_hours", 8.0, type=float)
     
     def _on_save_clicked(self):
         """Speichern-Button wurde geklickt"""
@@ -324,12 +474,23 @@ class TimeEntryWidget(QWidget):
             self.worker_combo.setCurrentIndex(0)
         
         self.date_edit.setDate(QDate.currentDate())
+        self.end_date_edit.setDate(QDate.currentDate())
         self.type_combo.setCurrentIndex(0)
         self.project_input.clearEditText()
         self.category_input.clear()
         self.time_input.clear()
         self.description_input.clear()
         self.status_label.setVisible(False)
+        
+        # End-Datum verstecken (wird bei Urlaub wieder angezeigt)
+        self.end_date_edit.setVisible(False)
+        self.end_date_label.setVisible(False)
+        self.date_label.setText("Datum:")
+        
+        # Dauer-Feld wieder editierbar
+        self.time_input.setReadOnly(False)
+        self.time_input.setStyleSheet("")
+        
         self.time_input.setFocus()
     
     def _refresh_entries_list(self):
