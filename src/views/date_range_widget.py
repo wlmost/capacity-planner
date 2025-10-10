@@ -1,21 +1,25 @@
 """
-DateRangeWidget - Quick-Select Buttons für Datumsfilter
+DateRangeWidget - Quick-Select Buttons + Custom Date Range Picker
 """
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QButtonGroup
+from PySide6.QtWidgets import (
+    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, 
+    QButtonGroup, QDateEdit
+)
 from PySide6.QtCore import Signal, QDate
 
 
 class DateRangeWidget(QWidget):
     """
-    Widget für schnelle Datums-Bereichsauswahl mit vordefinierten Presets
+    Widget für schnelle Datums-Bereichsauswahl mit vordefinierten Presets + Custom Range
     
     Features:
     - 8 vordefinierte Zeiträume (Heute, Diese Woche, Dieser Monat, etc.)
+    - Custom Date Range Picker (Von - Bis)
     - Signal-Emission bei Auswahl
     - Visual Feedback für aktiven Preset (Checkable Buttons)
     
     Signals:
-        date_range_changed(QDate, QDate): Wird emittiert wenn ein Preset gewählt wird
+        date_range_changed(QDate, QDate): Wird emittiert wenn ein Preset/Custom Range gewählt wird
     """
     
     date_range_changed = Signal(QDate, QDate)
@@ -27,46 +31,104 @@ class DateRangeWidget(QWidget):
         self._setup_ui()
     
     def _setup_ui(self):
-        """Erstellt das UI Layout mit Quick-Select Buttons"""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(5)
+        """Erstellt das UI Layout mit Quick-Select Buttons + Custom Picker"""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(10)
+        
+        # === ROW 1: QUICK-SELECT BUTTONS ===
+        preset_layout = QHBoxLayout()
+        preset_layout.setSpacing(5)
         
         # Label
         label = QLabel("Schnellauswahl:")
         label.setStyleSheet("font-weight: bold;")
-        layout.addWidget(label)
+        preset_layout.addWidget(label)
         
         # Row 1: Standard Zeiträume
         self._today_btn = self._create_preset_button("Heute", self._select_today)
-        layout.addWidget(self._today_btn)
+        preset_layout.addWidget(self._today_btn)
         
         self._week_btn = self._create_preset_button("Diese Woche", self._select_this_week)
-        layout.addWidget(self._week_btn)
+        preset_layout.addWidget(self._week_btn)
         
         self._month_btn = self._create_preset_button("Dieser Monat", self._select_this_month)
-        layout.addWidget(self._month_btn)
+        preset_layout.addWidget(self._month_btn)
         
         self._quarter_btn = self._create_preset_button("Dieses Quartal", self._select_this_quarter)
-        layout.addWidget(self._quarter_btn)
+        preset_layout.addWidget(self._quarter_btn)
         
         self._year_btn = self._create_preset_button("Dieses Jahr", self._select_this_year)
-        layout.addWidget(self._year_btn)
+        preset_layout.addWidget(self._year_btn)
         
         # Separator
-        layout.addSpacing(15)
+        preset_layout.addSpacing(15)
         
         # Row 2: Letzte X Tage
         self._last_7_btn = self._create_preset_button("Letzte 7 Tage", self._select_last_7_days)
-        layout.addWidget(self._last_7_btn)
+        preset_layout.addWidget(self._last_7_btn)
         
         self._last_30_btn = self._create_preset_button("Letzte 30 Tage", self._select_last_30_days)
-        layout.addWidget(self._last_30_btn)
+        preset_layout.addWidget(self._last_30_btn)
         
         self._last_90_btn = self._create_preset_button("Letzte 90 Tage", self._select_last_90_days)
-        layout.addWidget(self._last_90_btn)
+        preset_layout.addWidget(self._last_90_btn)
         
-        layout.addStretch()
+        preset_layout.addStretch()
+        
+        main_layout.addLayout(preset_layout)
+        
+        # === ROW 2: CUSTOM DATE RANGE PICKER ===
+        custom_layout = QHBoxLayout()
+        custom_layout.setSpacing(10)
+        
+        # Label
+        custom_label = QLabel("Benutzerdefiniert:")
+        custom_label.setStyleSheet("font-weight: bold;")
+        custom_layout.addWidget(custom_label)
+        
+        # Von-Datum
+        custom_layout.addWidget(QLabel("Von:"))
+        self.start_date_edit = QDateEdit()
+        self.start_date_edit.setDate(QDate.currentDate())
+        self.start_date_edit.setCalendarPopup(True)
+        self.start_date_edit.setDisplayFormat("dd.MM.yyyy")
+        self.start_date_edit.setMinimumWidth(120)
+        custom_layout.addWidget(self.start_date_edit)
+        
+        # Bis-Datum
+        custom_layout.addWidget(QLabel("Bis:"))
+        self.end_date_edit = QDateEdit()
+        self.end_date_edit.setDate(QDate.currentDate())
+        self.end_date_edit.setCalendarPopup(True)
+        self.end_date_edit.setDisplayFormat("dd.MM.yyyy")
+        self.end_date_edit.setMinimumWidth(120)
+        custom_layout.addWidget(self.end_date_edit)
+        
+        # Anwenden-Button
+        self.apply_custom_btn = QPushButton("Anwenden")
+        self.apply_custom_btn.clicked.connect(self._apply_custom_range)
+        self.apply_custom_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #0D47A1;
+            }
+        """)
+        custom_layout.addWidget(self.apply_custom_btn)
+        
+        custom_layout.addStretch()
+        
+        main_layout.addLayout(custom_layout)
     
     def _create_preset_button(self, text: str, callback) -> QPushButton:
         """
@@ -169,6 +231,24 @@ class DateRangeWidget(QWidget):
         today = QDate.currentDate()
         start = today.addDays(-90)
         self.date_range_changed.emit(start, today)
+    
+    def _apply_custom_range(self):
+        """Wendet benutzerdefinierten Datumsbereich an"""
+        start_date = self.start_date_edit.date()
+        end_date = self.end_date_edit.date()
+        
+        # Validierung: Start-Datum muss vor oder gleich End-Datum sein
+        if start_date > end_date:
+            # Automatisches Tauschen der Daten
+            start_date, end_date = end_date, start_date
+            self.start_date_edit.setDate(start_date)
+            self.end_date_edit.setDate(end_date)
+        
+        # Preset-Buttons deaktivieren
+        self.reset()
+        
+        # Signal mit benutzerdefiniertem Bereich aussenden
+        self.date_range_changed.emit(start_date, end_date)
     
     def reset(self):
         """Entfernt Auswahl aller Preset-Buttons"""

@@ -14,6 +14,7 @@ from typing import Optional, List
 
 from ..viewmodels.time_entry_viewmodel import TimeEntryViewModel
 from ..repositories.time_entry_repository import TimeEntryRepository
+from .date_range_widget import DateRangeWidget
 
 
 class TimeEntryWidget(QWidget):
@@ -55,6 +56,10 @@ class TimeEntryWidget(QWidget):
         self.time_entry_repository = time_entry_repository
         self._workers = []
         self._project_completer = None
+        
+        # Datumsfilter-State (Standard: Heute)
+        self._filter_start_date = QDate.currentDate()
+        self._filter_end_date = QDate.currentDate()
         
         self._setup_ui()
         self._connect_signals()
@@ -198,6 +203,10 @@ class TimeEntryWidget(QWidget):
         list_title.setFont(list_title_font)
         layout.addWidget(list_title)
         
+        # DateRangeWidget für Filterung
+        self.date_range_widget = DateRangeWidget()
+        layout.addWidget(self.date_range_widget)
+        
         # Tabelle
         self.entries_table = QTableWidget()
         self.entries_table.setColumnCount(8)
@@ -221,6 +230,9 @@ class TimeEntryWidget(QWidget):
         self.viewmodel.entry_created.connect(self._on_entry_created)
         self.viewmodel.validation_failed.connect(self._on_validation_failed)
         self.viewmodel.error_occurred.connect(self._on_error_occurred)
+        
+        # DateRangeWidget Signal
+        self.date_range_widget.date_range_changed.connect(self._on_date_range_changed)
         
         # Typ-Änderung für Urlaubs-Logik
         self.type_combo.currentIndexChanged.connect(self._on_type_changed)
@@ -305,6 +317,18 @@ class TimeEntryWidget(QWidget):
         """Wird aufgerufen wenn Worker geändert wird"""
         if self.type_combo.currentText() == "Urlaub":
             self._calculate_vacation_duration()
+    
+    def _on_date_range_changed(self, start_date: QDate, end_date: QDate):
+        """
+        Wird aufgerufen wenn Datumsbereich geändert wird
+        
+        Args:
+            start_date: Start-Datum
+            end_date: End-Datum
+        """
+        self._filter_start_date = start_date
+        self._filter_end_date = end_date
+        self._refresh_entries_list()
     
     def _calculate_vacation_duration(self):
         """Berechnet und setzt Urlaubsdauer automatisch"""
@@ -496,14 +520,13 @@ class TimeEntryWidget(QWidget):
     def _refresh_entries_list(self):
         """Aktualisiert die Liste der Zeitbuchungen"""
         try:
-            # Alle Einträge laden (letzte 30 Tage)
-            from datetime import datetime, timedelta
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=30)
+            # Verwende Filter-Datumsbereich
+            start_date_str = self._filter_start_date.toString("yyyy-MM-dd")
+            end_date_str = self._filter_end_date.toString("yyyy-MM-dd")
             
             entries = self.time_entry_repository.find_by_date_range(
-                start_date.strftime("%Y-%m-%d"),
-                end_date.strftime("%Y-%m-%d")
+                start_date_str,
+                end_date_str
             )
             
             # Sortiere nach Datum absteigend
