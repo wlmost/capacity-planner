@@ -427,12 +427,10 @@ class TimeEntryWidget(QWidget):
         """Speichern-Button wurde geklickt"""
         # Daten aus Formular lesen
         worker_id = self.worker_combo.currentData()
-        date_str = self.date_edit.date().toString("yyyy-MM-dd")
-        time_str = self.time_input.text().strip()
         description = self.description_input.toPlainText().strip()
+        entry_type = self.type_combo.currentText()
         
         # Neues Format: Typ wird der Beschreibung vorangestellt (für Kompatibilität)
-        entry_type = self.type_combo.currentText()
         if entry_type != "Arbeit":
             description = f"[{entry_type}] {description}"
         
@@ -444,8 +442,81 @@ class TimeEntryWidget(QWidget):
         elif category:
             project = category
         
-        # ViewModel aufrufen
-        self.viewmodel.create_entry(worker_id, date_str, time_str, description, project)
+        # Bei Urlaub: Einzelne Einträge für jeden Werktag erstellen
+        if entry_type == "Urlaub":
+            self._save_vacation_entries(worker_id, description, project)
+        else:
+            # Standard: Ein Eintrag für das Datum
+            date_str = self.date_edit.date().toString("yyyy-MM-dd")
+            time_str = self.time_input.text().strip()
+            self.viewmodel.create_entry(worker_id, date_str, time_str, description, project)
+    
+    def _save_vacation_entries(self, worker_id: int, description: str, project: str):
+        """
+        Erstellt einzelne Zeiterfassungs-Einträge für jeden Werktag im Urlaubszeitraum
+        
+        Args:
+            worker_id: ID des Workers
+            description: Beschreibung (bereits mit [Urlaub] Prefix)
+            project: Projekt-Zuordnung
+        """
+        # Datumsbereich ermitteln
+        start_date = self.date_edit.date()
+        end_date = self.end_date_edit.date()
+        
+        # Regelarbeitszeit für diesen Worker laden
+        daily_hours = self._get_daily_hours_for_worker(worker_id)
+        daily_minutes = int(daily_hours * 60)
+        time_str = f"{daily_hours}h"
+        
+        # Liste der zu erstellenden Einträge
+        dates_to_create = []
+        current = start_date
+        
+        while current <= end_date:
+            # Nur Werktage (Mo-Fr)
+            if current.dayOfWeek() <= 5:
+                dates_to_create.append(current.toString("yyyy-MM-dd"))
+            current = current.addDays(1)
+        
+        # Wenn keine Werktage vorhanden, Warnung anzeigen
+        if not dates_to_create:
+            self._show_status("⚠️ Keine Werktage im ausgewählten Zeitraum", "error")
+            return
+        
+        # Erstelle Einträge für alle Werktage
+        success_count = 0
+        failed_dates = []
+        
+        for date_str in dates_to_create:
+            try:
+                # Erstelle Eintrag für diesen Tag
+                self.viewmodel.create_entry(worker_id, date_str, time_str, description, project)
+                success_count += 1
+            except Exception as e:
+                failed_dates.append(date_str)
+        
+        # Status-Meldung
+        if success_count == len(dates_to_create):
+            self._show_status(
+                f"✓ Urlaub erfolgreich eingetragen: {success_count} Werktage "
+                f"({start_date.toString('dd.MM.yyyy')} - {end_date.toString('dd.MM.yyyy')})", 
+                "success"
+            )
+            self._clear_form()
+            self._refresh_entries_list()
+        elif success_count > 0:
+            self._show_status(
+                f"⚠️ Teilweise erfolgreich: {success_count}/{len(dates_to_create)} Einträge gespeichert. "
+                f"Fehler bei: {', '.join(failed_dates)}",
+                "error"
+            )
+            self._refresh_entries_list()
+        else:
+            self._show_status(
+                f"✗ Fehler beim Speichern der Urlaubseinträge",
+                "error"
+            )
     
     def _on_entry_created(self, entry_id: int):
         """
