@@ -466,7 +466,6 @@ class TimeEntryWidget(QWidget):
         
         # Regelarbeitszeit für diesen Worker laden
         daily_hours = self._get_daily_hours_for_worker(worker_id)
-        daily_minutes = int(daily_hours * 60)
         time_str = f"{daily_hours}h"
         
         # Liste der zu erstellenden Einträge
@@ -493,7 +492,7 @@ class TimeEntryWidget(QWidget):
                 # Erstelle Eintrag für diesen Tag
                 self.viewmodel.create_entry(worker_id, date_str, time_str, description, project)
                 success_count += 1
-            except Exception as e:
+            except Exception:
                 failed_dates.append(date_str)
         
         # Status-Meldung
@@ -514,7 +513,7 @@ class TimeEntryWidget(QWidget):
             self._refresh_entries_list()
         else:
             self._show_status(
-                f"✗ Fehler beim Speichern der Urlaubseinträge",
+                "✗ Fehler beim Speichern der Urlaubseinträge",
                 "error"
             )
     
@@ -947,7 +946,7 @@ class TimeEntryWidget(QWidget):
                 self.project_input.addItem(project)
             self.project_input.setCurrentIndex(-1)  # Kein Item ausgewählt
             
-        except Exception as e:
+        except Exception:
             pass  # Fehler bei Autovervollständigung ignorieren
     
     def load_workers(self, workers: List):

@@ -2,7 +2,7 @@
 Unit Tests für TimeEntryWidget - Urlaubseinträge speichern
 """
 import pytest
-from unittest.mock import Mock, MagicMock, call
+from unittest.mock import Mock
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QDate, QSettings
 
@@ -105,7 +105,7 @@ class TestVacationEntriesSave:
         assert mock_viewmodel.create_entry.call_count == 5
         
         # Prüfe, dass alle 5 Werktage erstellt wurden
-        created_dates = [call[0][1] for call in mock_viewmodel.create_entry.call_args_list]
+        created_dates = [c[0][1] for c in mock_viewmodel.create_entry.call_args_list]
         expected_dates = ["2025-01-06", "2025-01-07", "2025-01-08", "2025-01-09", "2025-01-10"]
         assert created_dates == expected_dates
     
@@ -124,7 +124,7 @@ class TestVacationEntriesSave:
         assert mock_viewmodel.create_entry.call_count == 10
         
         # Prüfe, dass alle Werktage erstellt wurden (ohne Wochenenden 11./12. Jan)
-        created_dates = [call[0][1] for call in mock_viewmodel.create_entry.call_args_list]
+        created_dates = [c[0][1] for c in mock_viewmodel.create_entry.call_args_list]
         expected_dates = [
             "2025-01-06", "2025-01-07", "2025-01-08", "2025-01-09", "2025-01-10",  # Woche 1
             "2025-01-13", "2025-01-14", "2025-01-15", "2025-01-16", "2025-01-17"   # Woche 2
