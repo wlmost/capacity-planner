@@ -5,6 +5,8 @@ Eine PySide6-Desktopanwendung für Windows zur Erfassung und Auswertung von Arbe
 ## Features
 
 - 📊 Flexible Zeiterfassung mit intelligentem Parser (z.B. "1:30", "90m", "1.5h")
+- ⏱️ **Integrierter Timer** für Live-Zeiterfassung mit Start/Stop-Buttons
+- ✏️ **Editierbare Zeiteinträge** direkt in der Tabelle (Doppelklick)
 - 🔐 Verschlüsselte Datenspeicherung (RSA/AES)
 - 📈 Auslastungsanalysen und Reports
 - 💾 SQLite-Datenbank via Qt SQL

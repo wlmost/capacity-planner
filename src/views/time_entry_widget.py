@@ -6,15 +6,18 @@ from PySide6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QDateEdit, 
     QTextEdit, QPushButton, QLabel, QComboBox,
     QVBoxLayout, QHBoxLayout, QMessageBox, QSplitter,
-    QTableWidget, QTableWidgetItem, QHeaderView, QCompleter
+    QTableWidget, QTableWidgetItem, QHeaderView, QCompleter,
+    QAbstractItemView
 )
 from PySide6.QtCore import Qt, QDate, Signal, QSettings
 from PySide6.QtGui import QFont
-from typing import Optional, List
+from typing import Optional, List, Dict
+from datetime import datetime
 
 from ..viewmodels.time_entry_viewmodel import TimeEntryViewModel
 from ..repositories.time_entry_repository import TimeEntryRepository
 from .date_range_widget import DateRangeWidget
+from .timer_widget import TimerWidget
 
 
 class TimeEntryWidget(QWidget):
@@ -60,6 +63,12 @@ class TimeEntryWidget(QWidget):
         # Datumsfilter-State (Standard: Heute)
         self._filter_start_date = QDate.currentDate()
         self._filter_end_date = QDate.currentDate()
+        
+        # Timer-Widgets Tracking (entry_id -> TimerWidget)
+        self._timer_widgets: Dict[int, TimerWidget] = {}
+        
+        # Entry-ID zu Row-Mapping (für Updates)
+        self._entry_row_map: Dict[int, int] = {}
         
         self._setup_ui()
         self._connect_signals()
@@ -209,16 +218,25 @@ class TimeEntryWidget(QWidget):
         
         # Tabelle
         self.entries_table = QTableWidget()
-        self.entries_table.setColumnCount(8)
+        self.entries_table.setColumnCount(9)  # Eine Spalte mehr für Timer
         self.entries_table.setHorizontalHeaderLabels([
             "Datum", "Worker", "Typ", "Projekt", "Kategorie", 
-            "Beschreibung", "Dauer", "Aktion"
+            "Beschreibung", "Dauer", "Timer", "Aktion"
         ])
         self.entries_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.entries_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
         self.entries_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.entries_table.setAlternatingRowColors(True)
         self.entries_table.setSortingEnabled(True)
+        
+        # Editierbar machen (Doppelklick oder F2)
+        self.entries_table.setEditTriggers(
+            QAbstractItemView.DoubleClicked | 
+            QAbstractItemView.EditKeyPressed
+        )
+        
+        # Signal für Zell-Änderungen
+        self.entries_table.itemChanged.connect(self._on_table_item_changed)
         
         layout.addWidget(self.entries_table)
         
@@ -520,6 +538,9 @@ class TimeEntryWidget(QWidget):
     def _refresh_entries_list(self):
         """Aktualisiert die Liste der Zeitbuchungen"""
         try:
+            # Stopppe alle laufenden Timer vor dem Refresh
+            self._stop_all_timers()
+            
             # Verwende Filter-Datumsbereich
             start_date_str = self._filter_start_date.toString("yyyy-MM-dd")
             end_date_str = self._filter_end_date.toString("yyyy-MM-dd")
@@ -536,24 +557,36 @@ class TimeEntryWidget(QWidget):
             self.entries_table.setRowCount(0)
             self.entries_table.setSortingEnabled(False)
             
+            # Clear tracking dicts
+            self._timer_widgets.clear()
+            self._entry_row_map.clear()
+            
             # Worker-Namen als Dict für schnellen Zugriff
             worker_names = {w.id: w.name for w in self._workers}
+            
+            # Signal temporär trennen für Bulk-Update
+            self.entries_table.itemChanged.disconnect(self._on_table_item_changed)
             
             # Einträge in Tabelle einfügen
             for entry in entries:
                 row = self.entries_table.rowCount()
                 self.entries_table.insertRow(row)
                 
-                # Datum
+                # Speichere Mapping
+                self._entry_row_map[entry.id] = row
+                
+                # Datum (nicht editierbar)
                 date_item = QTableWidgetItem(entry.date.strftime("%d.%m.%Y"))
+                date_item.setFlags(date_item.flags() & ~Qt.ItemIsEditable)
                 self.entries_table.setItem(row, 0, date_item)
                 
-                # Worker
+                # Worker (nicht editierbar)
                 worker_name = worker_names.get(entry.worker_id, f"ID:{entry.worker_id}")
                 worker_item = QTableWidgetItem(worker_name)
+                worker_item.setFlags(worker_item.flags() & ~Qt.ItemIsEditable)
                 self.entries_table.setItem(row, 1, worker_item)
                 
-                # Typ (aus Beschreibung extrahieren)
+                # Typ (aus Beschreibung extrahieren, nicht editierbar)
                 entry_type = "Arbeit"
                 description = entry.description
                 if description.startswith("["):
@@ -563,29 +596,43 @@ class TimeEntryWidget(QWidget):
                         description = description[end_bracket+1:].strip()
                 
                 type_item = QTableWidgetItem(entry_type)
+                type_item.setFlags(type_item.flags() & ~Qt.ItemIsEditable)
                 self.entries_table.setItem(row, 2, type_item)
                 
-                # Projekt und Kategorie
+                # Projekt und Kategorie (editierbar)
                 project = entry.project or ""
                 category = ""
                 if " - " in project:
                     project, category = project.split(" - ", 1)
                 
                 project_item = QTableWidgetItem(project)
+                project_item.setData(Qt.UserRole, entry.id)  # Speichere Entry-ID
                 self.entries_table.setItem(row, 3, project_item)
                 
                 category_item = QTableWidgetItem(category)
+                category_item.setData(Qt.UserRole, entry.id)
                 self.entries_table.setItem(row, 4, category_item)
                 
-                # Beschreibung
-                desc_item = QTableWidgetItem(description[:50] + "..." if len(description) > 50 else description)
+                # Beschreibung (editierbar)
+                desc_item = QTableWidgetItem(description)
+                desc_item.setData(Qt.UserRole, entry.id)
                 self.entries_table.setItem(row, 5, desc_item)
                 
-                # Dauer
+                # Dauer (editierbar)
                 hours = entry.duration_minutes / 60.0
                 duration_str = f"{entry.duration_minutes}m ({hours:.2f}h)"
                 duration_item = QTableWidgetItem(duration_str)
+                duration_item.setData(Qt.UserRole, entry.id)
+                duration_item.setData(Qt.UserRole + 1, entry.duration_minutes)  # Original-Minuten
                 self.entries_table.setItem(row, 6, duration_item)
+                
+                # Timer Widget
+                timer_widget = TimerWidget(entry.id, entry.duration_minutes)
+                timer_widget.timer_stopped.connect(
+                    lambda minutes, e_id=entry.id: self._on_timer_stopped(e_id, minutes)
+                )
+                self._timer_widgets[entry.id] = timer_widget
+                self.entries_table.setCellWidget(row, 7, timer_widget)
                 
                 # Löschen-Button
                 delete_button = QPushButton("🗑️ Löschen")
@@ -602,12 +649,173 @@ class TimeEntryWidget(QWidget):
                         background-color: #c82333;
                     }
                 """)
-                self.entries_table.setCellWidget(row, 7, delete_button)
+                self.entries_table.setCellWidget(row, 8, delete_button)
+            
+            # Signal wieder verbinden
+            self.entries_table.itemChanged.connect(self._on_table_item_changed)
             
             self.entries_table.setSortingEnabled(True)
             
         except Exception as e:
             self._show_status(f"Fehler beim Laden der Einträge: {str(e)}", "error")
+    
+    def _on_timer_stopped(self, entry_id: int, minutes: int):
+        """
+        Behandelt Timer-Stopp Event
+        
+        Args:
+            entry_id: ID des TimeEntry
+            minutes: Erfasste Minuten
+        """
+        try:
+            # Lade Entry aus DB
+            entry = self.time_entry_repository.find_by_id(entry_id)
+            if not entry:
+                self._show_status(f"Fehler: Entry {entry_id} nicht gefunden", "error")
+                return
+            
+            # Update Dauer
+            entry.duration_minutes = minutes
+            entry.updated_at = datetime.now()
+            
+            # Speichere in DB
+            success = self.time_entry_repository.update(entry)
+            if success:
+                # Update Tabellen-Zelle
+                row = self._entry_row_map.get(entry_id)
+                if row is not None:
+                    hours = minutes / 60.0
+                    duration_str = f"{minutes}m ({hours:.2f}h)"
+                    
+                    # Temporär Signal trennen für Update
+                    self.entries_table.itemChanged.disconnect(self._on_table_item_changed)
+                    
+                    duration_item = self.entries_table.item(row, 6)
+                    if duration_item:
+                        duration_item.setText(duration_str)
+                        duration_item.setData(Qt.UserRole + 1, minutes)
+                    
+                    # Signal wieder verbinden
+                    self.entries_table.itemChanged.connect(self._on_table_item_changed)
+                
+                self._show_status(f"✓ Timer gestoppt: {minutes} Minuten erfasst", "success")
+            else:
+                self._show_status("Fehler beim Speichern der Dauer", "error")
+                
+        except Exception as e:
+            self._show_status(f"Fehler beim Timer-Stopp: {str(e)}", "error")
+    
+    def _on_table_item_changed(self, item: QTableWidgetItem):
+        """
+        Behandelt Änderungen in der Tabelle
+        
+        Args:
+            item: Geändertes Table Item
+        """
+        # Hole Entry-ID aus Item
+        entry_id = item.data(Qt.UserRole)
+        if not entry_id:
+            return
+        
+        col = item.column()
+        
+        # Nur editierbare Spalten: Projekt (3), Kategorie (4), Beschreibung (5), Dauer (6)
+        if col not in [3, 4, 5, 6]:
+            return
+        
+        try:
+            # Lade Entry aus DB
+            entry = self.time_entry_repository.find_by_id(entry_id)
+            if not entry:
+                return
+            
+            new_value = item.text().strip()
+            
+            # Update entsprechende Eigenschaft
+            if col == 3:  # Projekt
+                # Kombiniere mit Kategorie
+                row = item.row()
+                category_item = self.entries_table.item(row, 4)
+                category = category_item.text().strip() if category_item else ""
+                
+                if new_value and category:
+                    entry.project = f"{new_value} - {category}"
+                elif new_value:
+                    entry.project = new_value
+                elif category:
+                    entry.project = f" - {category}"
+                else:
+                    entry.project = None
+                    
+            elif col == 4:  # Kategorie
+                # Kombiniere mit Projekt
+                row = item.row()
+                project_item = self.entries_table.item(row, 3)
+                project = project_item.text().strip() if project_item else ""
+                
+                if project and new_value:
+                    entry.project = f"{project} - {new_value}"
+                elif project:
+                    entry.project = project
+                elif new_value:
+                    entry.project = f" - {new_value}"
+                else:
+                    entry.project = None
+                    
+            elif col == 5:  # Beschreibung
+                # Prüfe ob Typ-Prefix vorhanden
+                row = item.row()
+                type_item = self.entries_table.item(row, 2)
+                entry_type = type_item.text() if type_item else "Arbeit"
+                
+                if entry_type != "Arbeit":
+                    entry.description = f"[{entry_type}] {new_value}"
+                else:
+                    entry.description = new_value
+                    
+            elif col == 6:  # Dauer
+                # Parse Dauer-Eingabe
+                parsed_minutes = self.viewmodel.parse_time_input(new_value)
+                if parsed_minutes is not None:
+                    entry.duration_minutes = parsed_minutes
+                    
+                    # Update Anzeige
+                    hours = parsed_minutes / 60.0
+                    item.setText(f"{parsed_minutes}m ({hours:.2f}h)")
+                    item.setData(Qt.UserRole + 1, parsed_minutes)
+                    
+                    # Update Timer Widget
+                    timer_widget = self._timer_widgets.get(entry_id)
+                    if timer_widget:
+                        # Nur updaten wenn Timer nicht läuft
+                        if not timer_widget.is_timer_running():
+                            timer_widget.accumulated_seconds = parsed_minutes * 60
+                            timer_widget._update_display()
+                else:
+                    # Ungültige Eingabe - zurücksetzen
+                    orig_minutes = item.data(Qt.UserRole + 1)
+                    if orig_minutes:
+                        hours = orig_minutes / 60.0
+                        item.setText(f"{orig_minutes}m ({hours:.2f}h)")
+                    self._show_status("Ungültige Dauer-Eingabe", "error")
+                    return
+            
+            # Speichere in DB
+            entry.updated_at = datetime.now()
+            success = self.time_entry_repository.update(entry)
+            
+            if success:
+                self._show_status("✓ Änderung gespeichert", "success")
+            else:
+                self._show_status("Fehler beim Speichern", "error")
+                
+        except Exception as e:
+            self._show_status(f"Fehler beim Speichern: {str(e)}", "error")
+    
+    def _stop_all_timers(self):
+        """Stoppt alle laufenden Timer"""
+        for timer_widget in self._timer_widgets.values():
+            timer_widget.stop_timer_if_running()
     
     def _on_delete_entry(self, entry_id: int):
         """
