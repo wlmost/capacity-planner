@@ -986,7 +986,7 @@ class TimeEntryWidget(QWidget):
                 self.project_input.addItem(project)
             self.project_input.setCurrentIndex(-1)  # Kein Item ausgewählt
             
-        except Exception as e:
+        except Exception:
             pass  # Fehler bei Autovervollständigung ignorieren
     
     def load_workers(self, workers: List):

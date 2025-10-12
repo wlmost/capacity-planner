@@ -368,7 +368,7 @@ self.time_entry_widget = TimeEntryWidget(
 2. **Erweiterte Filter**: Filter nach Worker, Typ, Projekt, Datum
 3. **Export**: CSV/Excel-Export der Zeitbuchungen-Liste
 4. **Statistiken**: Summen anzeigen (Gesamt-Stunden, pro Projekt, etc.)
-5. **Pagination**: Bei vielen Einträgen (> 100) Seitenweise laden
+5. ~~**Pagination**: Bei vielen Einträgen (> 100) Seitenweise laden~~ ✅ **IMPLEMENTIERT** (siehe `docs/table-pagination-concept.md`)
 6. **Favoriten-Projekte**: Häufig genutzte Projekte pinnen
 7. **Duplikat-Funktion**: Letzten Eintrag duplizieren für schnellere Eingabe
 
