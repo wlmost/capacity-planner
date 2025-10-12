@@ -15,6 +15,35 @@ und dieses Projekt folgt [Semantic Versioning](https://semver.org/lang/de/).
 - Weitere Chart-Typen (Linien, Torten, Heatmap)
 - PDF-Export
 
+### ✅ Neu hinzugefügt
+- **⏱️ Timer-Feature für Zeiterfassung**
+  - Integrierter Timer pro Zeiterfassungs-Eintrag in der Tabelle
+  - Start/Stop-Button mit Live-Anzeige (HH:MM:SS)
+  - Grüner ▶ Button zum Starten, roter ■ Button zum Stoppen
+  - Automatische Speicherung der erfassten Zeit in Datenbank
+  - Akkumulation über mehrere Start/Stop-Zyklen
+  - Signal-basierte Kommunikation zwischen Timer und Widget
+
+- **✏️ Editierbare Tabellen-Zellen**
+  - Projekt, Kategorie, Beschreibung und Dauer direkt in Tabelle editierbar
+  - Doppelklick oder F2 zum Editieren
+  - Automatisches Speichern bei Änderungen
+  - Flexible Dauer-Eingabe (1:30, 90m, 1.5h, etc.)
+  - Validierung von Zeit-Eingaben
+  - Sofortige Feedback-Meldungen bei Erfolg/Fehler
+
+- **TimerWidget Komponente**
+  - Eigenständiges, wiederverwendbares Widget
+  - QTimer-basierte sekündliche Updates
+  - Monospace-Font für konsistente Zeit-Anzeige
+  - Styled Start/Stop-Buttons mit Hover-Effekten
+  - timer_stopped und duration_changed Signals
+
+### 📚 Dokumentation
+- docs/timer-feature.md: Umfassende Feature-Dokumentation
+- docs/timer-feature-visual.md: Visuelle Übersicht mit ASCII-Diagrammen
+- Unit Tests für TimerWidget (tests/unit/views/test_timer_widget.py)
+
 ---
 
 ## [phase4-part1-complete] - 2025-10-06
