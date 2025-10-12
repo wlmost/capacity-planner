@@ -18,6 +18,7 @@ from ..viewmodels.time_entry_viewmodel import TimeEntryViewModel
 from ..repositories.time_entry_repository import TimeEntryRepository
 from .date_range_widget import DateRangeWidget
 from .timer_widget import TimerWidget
+from .table_search_widget import TableSearchWidget
 
 
 class TimeEntryWidget(QWidget):
@@ -215,6 +216,11 @@ class TimeEntryWidget(QWidget):
         # DateRangeWidget für Filterung
         self.date_range_widget = DateRangeWidget()
         layout.addWidget(self.date_range_widget)
+        
+        # Such-Widget
+        self.search_widget = TableSearchWidget("🔍 Datum, Worker, Projekt oder Beschreibung suchen...")
+        self.search_widget.search_changed.connect(self._on_search)
+        layout.addWidget(self.search_widget)
         
         # Tabelle
         self.entries_table = QTableWidget()
@@ -658,6 +664,51 @@ class TimeEntryWidget(QWidget):
             
         except Exception as e:
             self._show_status(f"Fehler beim Laden der Einträge: {str(e)}", "error")
+    
+    def _on_search(self, search_text: str):
+        """
+        Handler für Such-Ereignisse
+        
+        Filtert Tabellenzeilen basierend auf Suchtext.
+        Sucht in: Datum, Worker, Projekt, Beschreibung
+        
+        Args:
+            search_text: Suchtext (case-insensitive)
+        """
+        if not search_text:
+            # Keine aktive Suche - alle Zeilen anzeigen
+            for row in range(self.entries_table.rowCount()):
+                self.entries_table.setRowHidden(row, False)
+            self.search_widget.set_result_count(
+                self.entries_table.rowCount(),
+                self.entries_table.rowCount()
+            )
+            return
+        
+        search_lower = search_text.lower()
+        visible_count = 0
+        total_count = self.entries_table.rowCount()
+        
+        # Spalten für Suche: 0=Datum, 1=Worker, 3=Projekt, 5=Beschreibung
+        search_columns = [0, 1, 3, 5]
+        
+        for row in range(total_count):
+            match = False
+            
+            # Prüfe alle suchbaren Spalten
+            for col in search_columns:
+                item = self.entries_table.item(row, col)
+                if item and search_lower in item.text().lower():
+                    match = True
+                    break
+            
+            # Zeile verstecken wenn keine Übereinstimmung
+            self.entries_table.setRowHidden(row, not match)
+            if match:
+                visible_count += 1
+        
+        # Aktualisiere Treffer-Anzeige
+        self.search_widget.set_result_count(visible_count, total_count)
     
     def _on_timer_stopped(self, entry_id: int, minutes: int):
         """
