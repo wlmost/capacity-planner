@@ -19,6 +19,7 @@ from ..repositories.time_entry_repository import TimeEntryRepository
 from .date_range_widget import DateRangeWidget
 from .timer_widget import TimerWidget
 from .table_search_widget import TableSearchWidget
+from .table_pagination_widget import TablePaginationWidget
 
 
 class TimeEntryWidget(QWidget):
@@ -70,6 +71,10 @@ class TimeEntryWidget(QWidget):
         
         # Entry-ID zu Row-Mapping (für Updates)
         self._entry_row_map: Dict[int, int] = {}
+        
+        # Pagination State
+        self._all_entries = []  # Alle geladenen Einträge (ungefiltert)
+        self._filtered_entries = []  # Nach Suche gefilterte Einträge
         
         self._setup_ui()
         self._connect_signals()
@@ -245,6 +250,14 @@ class TimeEntryWidget(QWidget):
         self.entries_table.itemChanged.connect(self._on_table_item_changed)
         
         layout.addWidget(self.entries_table)
+        
+        # Pagination-Widget
+        settings = QSettings()
+        default_page_size = settings.value("time_entry_page_size", 25, type=int)
+        self.pagination_widget = TablePaginationWidget(default_page_size)
+        self.pagination_widget.page_changed.connect(self._on_page_changed)
+        self.pagination_widget.page_size_changed.connect(self._on_page_size_changed)
+        layout.addWidget(self.pagination_widget)
         
         return widget
     
@@ -551,164 +564,210 @@ class TimeEntryWidget(QWidget):
             start_date_str = self._filter_start_date.toString("yyyy-MM-dd")
             end_date_str = self._filter_end_date.toString("yyyy-MM-dd")
             
-            entries = self.time_entry_repository.find_by_date_range(
+            # Lade alle Einträge aus DB
+            self._all_entries = self.time_entry_repository.find_by_date_range(
                 start_date_str,
                 end_date_str
             )
             
             # Sortiere nach Datum absteigend
-            entries.sort(key=lambda e: e.date, reverse=True)
+            self._all_entries.sort(key=lambda e: e.date, reverse=True)
             
-            # Tabelle leeren
-            self.entries_table.setRowCount(0)
-            self.entries_table.setSortingEnabled(False)
+            # Wende aktuelle Suche an (falls vorhanden)
+            self._apply_search_filter()
             
-            # Clear tracking dicts
-            self._timer_widgets.clear()
-            self._entry_row_map.clear()
-            
-            # Worker-Namen als Dict für schnellen Zugriff
-            worker_names = {w.id: w.name for w in self._workers}
-            
-            # Signal temporär trennen für Bulk-Update
-            self.entries_table.itemChanged.disconnect(self._on_table_item_changed)
-            
-            # Einträge in Tabelle einfügen
-            for entry in entries:
-                row = self.entries_table.rowCount()
-                self.entries_table.insertRow(row)
-                
-                # Speichere Mapping
-                self._entry_row_map[entry.id] = row
-                
-                # Datum (nicht editierbar)
-                date_item = QTableWidgetItem(entry.date.strftime("%d.%m.%Y"))
-                date_item.setFlags(date_item.flags() & ~Qt.ItemIsEditable)
-                self.entries_table.setItem(row, 0, date_item)
-                
-                # Worker (nicht editierbar)
-                worker_name = worker_names.get(entry.worker_id, f"ID:{entry.worker_id}")
-                worker_item = QTableWidgetItem(worker_name)
-                worker_item.setFlags(worker_item.flags() & ~Qt.ItemIsEditable)
-                self.entries_table.setItem(row, 1, worker_item)
-                
-                # Typ (aus Beschreibung extrahieren, nicht editierbar)
-                entry_type = "Arbeit"
-                description = entry.description
-                if description.startswith("["):
-                    end_bracket = description.find("]")
-                    if end_bracket > 0:
-                        entry_type = description[1:end_bracket]
-                        description = description[end_bracket+1:].strip()
-                
-                type_item = QTableWidgetItem(entry_type)
-                type_item.setFlags(type_item.flags() & ~Qt.ItemIsEditable)
-                self.entries_table.setItem(row, 2, type_item)
-                
-                # Projekt und Kategorie (editierbar)
-                project = entry.project or ""
-                category = ""
-                if " - " in project:
-                    project, category = project.split(" - ", 1)
-                
-                project_item = QTableWidgetItem(project)
-                project_item.setData(Qt.UserRole, entry.id)  # Speichere Entry-ID
-                self.entries_table.setItem(row, 3, project_item)
-                
-                category_item = QTableWidgetItem(category)
-                category_item.setData(Qt.UserRole, entry.id)
-                self.entries_table.setItem(row, 4, category_item)
-                
-                # Beschreibung (editierbar)
-                desc_item = QTableWidgetItem(description)
-                desc_item.setData(Qt.UserRole, entry.id)
-                self.entries_table.setItem(row, 5, desc_item)
-                
-                # Dauer (editierbar)
-                hours = entry.duration_minutes / 60.0
-                duration_str = f"{entry.duration_minutes}m ({hours:.2f}h)"
-                duration_item = QTableWidgetItem(duration_str)
-                duration_item.setData(Qt.UserRole, entry.id)
-                duration_item.setData(Qt.UserRole + 1, entry.duration_minutes)  # Original-Minuten
-                self.entries_table.setItem(row, 6, duration_item)
-                
-                # Timer Widget
-                timer_widget = TimerWidget(entry.id, entry.duration_minutes)
-                timer_widget.timer_stopped.connect(
-                    lambda minutes, e_id=entry.id: self._on_timer_stopped(e_id, minutes)
-                )
-                self._timer_widgets[entry.id] = timer_widget
-                self.entries_table.setCellWidget(row, 7, timer_widget)
-                
-                # Löschen-Button
-                delete_button = QPushButton("🗑️ Löschen")
-                delete_button.clicked.connect(lambda checked, e_id=entry.id: self._on_delete_entry(e_id))
-                delete_button.setStyleSheet("""
-                    QPushButton {
-                        background-color: #dc3545;
-                        color: white;
-                        border: none;
-                        padding: 5px 10px;
-                        border-radius: 3px;
-                    }
-                    QPushButton:hover {
-                        background-color: #c82333;
-                    }
-                """)
-                self.entries_table.setCellWidget(row, 8, delete_button)
-            
-            # Signal wieder verbinden
-            self.entries_table.itemChanged.connect(self._on_table_item_changed)
-            
-            self.entries_table.setSortingEnabled(True)
+            # Update Pagination und Tabelle
+            self._update_paginated_table()
             
         except Exception as e:
             self._show_status(f"Fehler beim Laden der Einträge: {str(e)}", "error")
+    
+    def _apply_search_filter(self):
+        """Wendet Suchfilter auf alle Einträge an"""
+        search_text = self.search_widget.get_search_text().lower()
+        
+        if not search_text:
+            # Keine Suche - alle Einträge anzeigen
+            self._filtered_entries = self._all_entries[:]
+        else:
+            # Filtere Einträge basierend auf Suchtext
+            self._filtered_entries = []
+            worker_names = {w.id: w.name for w in self._workers}
+            
+            for entry in self._all_entries:
+                # Extrahiere suchbare Felder
+                date_str = entry.date.strftime("%d.%m.%Y")
+                worker_name = worker_names.get(entry.worker_id, f"ID:{entry.worker_id}")
+                project = entry.project or ""
+                description = entry.description or ""
+                
+                # Prüfe ob Suchtext in einem der Felder vorkommt
+                if (search_text in date_str.lower() or
+                    search_text in worker_name.lower() or
+                    search_text in project.lower() or
+                    search_text in description.lower()):
+                    self._filtered_entries.append(entry)
+        
+        # Update Treffer-Anzeige im Search Widget
+        self.search_widget.set_result_count(
+            len(self._filtered_entries),
+            len(self._all_entries)
+        )
+    
+    def _update_paginated_table(self):
+        """Aktualisiert Tabelle mit aktueller Seite der gefilterten Einträge"""
+        # Update Pagination Widget mit Gesamtanzahl
+        self.pagination_widget.set_total_items(len(self._filtered_entries))
+        
+        # Tabelle leeren
+        self.entries_table.setRowCount(0)
+        self.entries_table.setSortingEnabled(False)
+        
+        # Clear tracking dicts
+        self._timer_widgets.clear()
+        self._entry_row_map.clear()
+        
+        # Berechne welche Einträge angezeigt werden sollen
+        offset = self.pagination_widget.get_offset()
+        limit = self.pagination_widget.get_limit()
+        paginated_entries = self._filtered_entries[offset:offset + limit]
+        
+        # Worker-Namen als Dict für schnellen Zugriff
+        worker_names = {w.id: w.name for w in self._workers}
+        
+        # Signal temporär trennen für Bulk-Update
+        self.entries_table.itemChanged.disconnect(self._on_table_item_changed)
+        
+        # Einträge in Tabelle einfügen
+        for entry in paginated_entries:
+            row = self.entries_table.rowCount()
+            self.entries_table.insertRow(row)
+            
+            # Speichere Mapping
+            self._entry_row_map[entry.id] = row
+            
+            # Datum (nicht editierbar)
+            date_item = QTableWidgetItem(entry.date.strftime("%d.%m.%Y"))
+            date_item.setFlags(date_item.flags() & ~Qt.ItemIsEditable)
+            self.entries_table.setItem(row, 0, date_item)
+            
+            # Worker (nicht editierbar)
+            worker_name = worker_names.get(entry.worker_id, f"ID:{entry.worker_id}")
+            worker_item = QTableWidgetItem(worker_name)
+            worker_item.setFlags(worker_item.flags() & ~Qt.ItemIsEditable)
+            self.entries_table.setItem(row, 1, worker_item)
+            
+            # Typ (aus Beschreibung extrahieren, nicht editierbar)
+            entry_type = "Arbeit"
+            description = entry.description
+            if description.startswith("["):
+                end_bracket = description.find("]")
+                if end_bracket > 0:
+                    entry_type = description[1:end_bracket]
+                    description = description[end_bracket+1:].strip()
+            
+            type_item = QTableWidgetItem(entry_type)
+            type_item.setFlags(type_item.flags() & ~Qt.ItemIsEditable)
+            self.entries_table.setItem(row, 2, type_item)
+            
+            # Projekt und Kategorie (editierbar)
+            project = entry.project or ""
+            category = ""
+            if " - " in project:
+                project, category = project.split(" - ", 1)
+            
+            project_item = QTableWidgetItem(project)
+            project_item.setData(Qt.UserRole, entry.id)  # Speichere Entry-ID
+            self.entries_table.setItem(row, 3, project_item)
+            
+            category_item = QTableWidgetItem(category)
+            category_item.setData(Qt.UserRole, entry.id)
+            self.entries_table.setItem(row, 4, category_item)
+            
+            # Beschreibung (editierbar)
+            desc_item = QTableWidgetItem(description)
+            desc_item.setData(Qt.UserRole, entry.id)
+            self.entries_table.setItem(row, 5, desc_item)
+            
+            # Dauer (editierbar)
+            hours = entry.duration_minutes / 60.0
+            duration_str = f"{entry.duration_minutes}m ({hours:.2f}h)"
+            duration_item = QTableWidgetItem(duration_str)
+            duration_item.setData(Qt.UserRole, entry.id)
+            duration_item.setData(Qt.UserRole + 1, entry.duration_minutes)  # Original-Minuten
+            self.entries_table.setItem(row, 6, duration_item)
+            
+            # Timer Widget
+            timer_widget = TimerWidget(entry.id, entry.duration_minutes)
+            timer_widget.timer_stopped.connect(
+                lambda minutes, e_id=entry.id: self._on_timer_stopped(e_id, minutes)
+            )
+            self._timer_widgets[entry.id] = timer_widget
+            self.entries_table.setCellWidget(row, 7, timer_widget)
+            
+            # Löschen-Button
+            delete_button = QPushButton("🗑️ Löschen")
+            delete_button.clicked.connect(lambda checked, e_id=entry.id: self._on_delete_entry(e_id))
+            delete_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #dc3545;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 3px;
+                }
+                QPushButton:hover {
+                    background-color: #c82333;
+                }
+            """)
+            self.entries_table.setCellWidget(row, 8, delete_button)
+        
+        # Signal wieder verbinden
+        self.entries_table.itemChanged.connect(self._on_table_item_changed)
+        
+        self.entries_table.setSortingEnabled(True)
     
     def _on_search(self, search_text: str):
         """
         Handler für Such-Ereignisse
         
-        Filtert Tabellenzeilen basierend auf Suchtext.
+        Filtert Einträge basierend auf Suchtext und aktualisiert Pagination.
         Sucht in: Datum, Worker, Projekt, Beschreibung
         
         Args:
             search_text: Suchtext (case-insensitive)
         """
-        if not search_text:
-            # Keine aktive Suche - alle Zeilen anzeigen
-            for row in range(self.entries_table.rowCount()):
-                self.entries_table.setRowHidden(row, False)
-            self.search_widget.set_result_count(
-                self.entries_table.rowCount(),
-                self.entries_table.rowCount()
-            )
-            return
+        # Wende Suchfilter an
+        self._apply_search_filter()
         
-        search_lower = search_text.lower()
-        visible_count = 0
-        total_count = self.entries_table.rowCount()
+        # Zurück zu Seite 1 bei neuer Suche
+        self.pagination_widget.reset_to_first_page()
         
-        # Spalten für Suche: 0=Datum, 1=Worker, 3=Projekt, 5=Beschreibung
-        search_columns = [0, 1, 3, 5]
+        # Update Tabelle mit gefilterter Liste
+        self._update_paginated_table()
+    
+    def _on_page_changed(self, page: int):
+        """
+        Handler für Seitenwechsel
         
-        for row in range(total_count):
-            match = False
-            
-            # Prüfe alle suchbaren Spalten
-            for col in search_columns:
-                item = self.entries_table.item(row, col)
-                if item and search_lower in item.text().lower():
-                    match = True
-                    break
-            
-            # Zeile verstecken wenn keine Übereinstimmung
-            self.entries_table.setRowHidden(row, not match)
-            if match:
-                visible_count += 1
+        Args:
+            page: Neue Seitennummer
+        """
+        self._update_paginated_table()
+    
+    def _on_page_size_changed(self, size: int):
+        """
+        Handler für Änderung der Seitengröße
         
-        # Aktualisiere Treffer-Anzeige
-        self.search_widget.set_result_count(visible_count, total_count)
+        Args:
+            size: Neue Anzahl Einträge pro Seite
+        """
+        # Speichere in Settings
+        settings = QSettings()
+        settings.setValue("time_entry_page_size", size)
+        
+        # Update Tabelle
+        self._update_paginated_table()
     
     def _on_timer_stopped(self, entry_id: int, minutes: int):
         """
@@ -927,7 +986,7 @@ class TimeEntryWidget(QWidget):
                 self.project_input.addItem(project)
             self.project_input.setCurrentIndex(-1)  # Kein Item ausgewählt
             
-        except Exception as e:
+        except Exception:
             pass  # Fehler bei Autovervollständigung ignorieren
     
     def load_workers(self, workers: List):
