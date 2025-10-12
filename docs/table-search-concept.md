@@ -22,10 +22,14 @@ Implementierung einer wiederverwendbaren Such-Komponente für alle Tabellen-Widg
 - [ ] Multi-Spalten-Suche (Name, Email, Team)
 - [ ] Case-insensitive Matching
 
-### Phase 3: TimeEntryWidget Integration
-- [ ] SearchWidget hinzufügen
-- [ ] Suche in: Worker, Projekt, Beschreibung, Datum
-- [ ] Filterung der Tabellen-Zeilen
+### Phase 3: TimeEntryWidget Integration ✅ COMPLETED
+- [x] SearchWidget hinzufügen
+- [x] Suche in: Worker, Projekt, Beschreibung, Datum
+- [x] Filterung der Tabellen-Zeilen
+- [x] Unit-Tests für Integration
+- [x] Live-Filterung mit setRowHidden()
+- [x] Case-insensitive Substring-Matching
+- [x] Treffer-Anzeige implementiert
 
 ### Phase 4: WorkerWidget Integration
 - [ ] SearchWidget hinzufügen
@@ -538,12 +542,68 @@ feat(search): Add table search to Worker and Capacity widgets
 ## 11. Nächste Schritte
 
 1. ✅ Konzept erstellen (DONE)
-2. 🔄 TableSearchWidget implementieren (NEXT)
-3. ⏳ AnalyticsWidget Integration
-4. ⏳ TimeEntryWidget Integration
-5. ⏳ WorkerWidget Integration
-6. ⏳ CapacityWidget Integration
-7. ⏳ Tests schreiben
-8. ⏳ Dokumentation
+2. ✅ TableSearchWidget implementieren (DONE - bereits vorhanden)
+3. ⏳ AnalyticsWidget Integration (PENDING)
+4. ✅ TimeEntryWidget Integration (DONE - siehe Commit 1f099b9)
+5. ⏳ WorkerWidget Integration (PENDING)
+6. ⏳ CapacityWidget Integration (PENDING)
+7. 🔄 Tests schreiben (IN PROGRESS - TimeEntry Tests vorhanden)
+8. ⏳ Dokumentation (PENDING)
 
-**Status**: 📋 Konzept abgeschlossen, bereit für Implementierung
+**Status**: 📋 Phase 3 abgeschlossen (TimeEntryWidget), bereit für Phase 4
+
+---
+
+## 12. TimeEntryWidget Integration - Completed ✅
+
+**Datum**: 2025-10-12
+**Branch**: `copilot/add-search-filter-time-entries`
+**Commit**: `1f099b9`
+
+### Implementierte Features
+- ✅ TableSearchWidget zwischen DateRangeWidget und Tabelle integriert
+- ✅ Suche in 4 Spalten: Datum (0), Worker (1), Projekt (3), Beschreibung (5)
+- ✅ Live-Filterung mit `setRowHidden()`
+- ✅ Case-insensitive Substring-Matching
+- ✅ Treffer-Anzeige ("X von Y Treffern")
+- ✅ Clear-Button für Zurücksetzen
+- ✅ 26 Unit-Tests in `test_time_entry_widget_search.py`
+
+### Code-Änderungen
+- **src/views/time_entry_widget.py** (+51 Zeilen)
+  - Import von TableSearchWidget
+  - Widget-Instanz in _create_list_widget()
+  - Signal-Connection zu _on_search()
+  - Handler-Methode implementiert
+
+- **tests/unit/views/test_time_entry_widget_search.py** (+325 Zeilen, neu)
+  - UI-Integration Tests
+  - Filter-Funktionalität Tests
+  - Case-Insensitivity Tests
+  - Substring-Matching Tests
+  - Edge Case Tests
+
+### Suchbare Spalten
+```python
+search_columns = [0, 1, 3, 5]
+# 0 = Datum (z.B. "15.01.2024")
+# 1 = Worker (z.B. "Alice")
+# 3 = Projekt (z.B. "Alpha")
+# 5 = Beschreibung (z.B. "Implementation")
+```
+
+### Performance
+- O(n*m) Komplexität: n=Zeilen, m=Spalten (4)
+- Sehr schnell für < 1000 Einträge
+- Keine Debouncing nötig
+
+### User Experience
+```
+Eingabe: "Alice" → Zeigt nur Einträge von Alice
+Eingabe: "Alpha" → Zeigt nur Projekt Alpha
+Eingabe: "Review" → Zeigt nur Einträge mit "Review"
+Eingabe: "15.01" → Zeigt alle Einträge vom 15.01
+```
+
+### Next Widget: AnalyticsWidget oder WorkerWidget
+Die Implementierung kann als Vorlage für die anderen Widgets dienen.
