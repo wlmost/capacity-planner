@@ -371,23 +371,33 @@ class CapacityWidget(QWidget):
             Dict mit 'percent' (float oder None) und 'display' (str)
         """
         try:
-            # Direkter Aufruf des AnalyticsService ohne Signal-Emission
-            # um Probleme mit dem Form-Panel zu vermeiden
-            analytics_service = self._viewmodel._analytics_service
-            utilization_data = analytics_service.calculate_worker_utilization(
+            # Direkter Zugriff auf Repository für spezifische Capacity-Berechnung
+            from ..repositories.time_entry_repository import TimeEntryRepository
+            
+            db_service = self._viewmodel._analytics_service._db_service
+            entry_repo = TimeEntryRepository(db_service)
+            
+            # Hole TimeEntries für diese spezifische Capacity
+            time_entries = entry_repo.find_by_worker(
                 capacity.worker_id,
                 capacity.start_date,
                 capacity.end_date
             )
-
-            if utilization_data and utilization_data.get('hours_planned', 0) > 0:
-                percent = utilization_data['utilization_percent']
+            
+            # Berechne gearbeitete Stunden
+            hours_worked = sum(entry.duration_hours() for entry in time_entries)
+            
+            # Verwende die geplanten Stunden dieser spezifischen Capacity
+            hours_planned = capacity.planned_hours
+            
+            if hours_planned > 0:
+                percent = (hours_worked / hours_planned) * 100
                 return {
                     'percent': percent,
                     'display': f"{percent:.1f}%"
                 }
             else:
-                # Keine Daten oder keine geplanten Stunden
+                # Keine geplanten Stunden
                 return {
                     'percent': None,
                     'display': "-"
