@@ -87,15 +87,13 @@ class TestCapacityWidgetTablePopulation:
                 id=1,
                 worker_id=1,
                 date=datetime(2024, 1, 15),
-                start_time=datetime(2024, 1, 15, 9, 0),
-                end_time=datetime(2024, 1, 15, 17, 0),
-                task="Work",
+                duration_minutes=480,  # 8 hours
                 description="Test"
             )
         ])
         
         mock_repo_class = Mock(return_value=mock_repo)
-        monkeypatch.setattr('src.views.capacity_widget.TimeEntryRepository', mock_repo_class)
+        monkeypatch.setattr('src.repositories.time_entry_repository.TimeEntryRepository', mock_repo_class)
         
         capacity_widget._workers = sample_workers
         
@@ -126,16 +124,14 @@ class TestCapacityWidgetTablePopulation:
                     id=day,
                     worker_id=1,
                     date=datetime(2024, 1, day),
-                    start_time=datetime(2024, 1, day, 9, 0),
-                    end_time=datetime(2024, 1, day, 16, 30),  # 7.5 Stunden
-                    task="Work",
+                    duration_minutes=450,  # 7.5 Stunden
                     description="Test"
                 )
             )
         mock_repo.find_by_worker = Mock(return_value=mock_time_entries)
         
         mock_repo_class = Mock(return_value=mock_repo)
-        monkeypatch.setattr('src.views.capacity_widget.TimeEntryRepository', mock_repo_class)
+        monkeypatch.setattr('src.repositories.time_entry_repository.TimeEntryRepository', mock_repo_class)
         
         capacity_widget._workers = sample_workers
         
@@ -174,16 +170,14 @@ class TestCapacityWidgetTablePopulation:
                     id=day,
                     worker_id=1,
                     date=datetime(2024, 1, day),
-                    start_time=datetime(2024, 1, day, 9, 0),
-                    end_time=datetime(2024, 1, day, 16, 30),  # 7.5 Stunden
-                    task="Work",
+                    duration_minutes=450,  # 7.5 Stunden
                     description="Test"
                 )
             )
         mock_repo.find_by_worker = Mock(return_value=mock_time_entries)
         
         mock_repo_class = Mock(return_value=mock_repo)
-        monkeypatch.setattr('src.views.capacity_widget.TimeEntryRepository', mock_repo_class)
+        monkeypatch.setattr('src.repositories.time_entry_repository.TimeEntryRepository', mock_repo_class)
         
         # Execute
         result = capacity_widget._calculate_capacity_utilization(capacity)
@@ -208,7 +202,7 @@ class TestCapacityWidgetTablePopulation:
         mock_repo.find_by_worker = Mock(return_value=[])
         
         mock_repo_class = Mock(return_value=mock_repo)
-        monkeypatch.setattr('src.views.capacity_widget.TimeEntryRepository', mock_repo_class)
+        monkeypatch.setattr('src.repositories.time_entry_repository.TimeEntryRepository', mock_repo_class)
         
         # Execute
         result = capacity_widget._calculate_capacity_utilization(capacity)
@@ -230,7 +224,7 @@ class TestCapacityWidgetTablePopulation:
         
         # Mock TimeEntryRepository um Exception zu werfen
         mock_repo_class = Mock(side_effect=Exception("Test Error"))
-        monkeypatch.setattr('src.views.capacity_widget.TimeEntryRepository', mock_repo_class)
+        monkeypatch.setattr('src.repositories.time_entry_repository.TimeEntryRepository', mock_repo_class)
         
         # Execute
         result = capacity_widget._calculate_capacity_utilization(capacity)
@@ -257,16 +251,14 @@ class TestCapacityWidgetUtilizationColors:
                     id=day,
                     worker_id=1,
                     date=datetime(2024, 1, day),
-                    start_time=datetime(2024, 1, day, 9, 0),
-                    end_time=datetime(2024, 1, day, 16, 30),
-                    task="Work",
+                    duration_minutes=450,  # 7.5 Stunden
                     description="Test"
                 )
             )
         mock_repo.find_by_worker = Mock(return_value=mock_time_entries)
         
         mock_repo_class = Mock(return_value=mock_repo)
-        monkeypatch.setattr('src.views.capacity_widget.TimeEntryRepository', mock_repo_class)
+        monkeypatch.setattr('src.repositories.time_entry_repository.TimeEntryRepository', mock_repo_class)
         
         capacity_widget._workers = sample_workers
         
@@ -291,16 +283,14 @@ class TestCapacityWidgetUtilizationColors:
                     id=day,
                     worker_id=1,
                     date=datetime(2024, 1, day),
-                    start_time=datetime(2024, 1, day, 9, 0),
-                    end_time=datetime(2024, 1, day, 16, 30),
-                    task="Work",
+                    duration_minutes=450,  # 7.5 Stunden
                     description="Test"
                 )
             )
         mock_repo.find_by_worker = Mock(return_value=mock_time_entries)
         
         mock_repo_class = Mock(return_value=mock_repo)
-        monkeypatch.setattr('src.views.capacity_widget.TimeEntryRepository', mock_repo_class)
+        monkeypatch.setattr('src.repositories.time_entry_repository.TimeEntryRepository', mock_repo_class)
         
         capacity_widget._workers = sample_workers
         
@@ -325,16 +315,14 @@ class TestCapacityWidgetUtilizationColors:
                     id=day,
                     worker_id=1,
                     date=datetime(2024, 1, day),
-                    start_time=datetime(2024, 1, day, 9, 0),
-                    end_time=datetime(2024, 1, day, 16, 30),
-                    task="Work",
+                    duration_minutes=450,  # 7.5 Stunden
                     description="Test"
                 )
             )
         mock_repo.find_by_worker = Mock(return_value=mock_time_entries)
         
         mock_repo_class = Mock(return_value=mock_repo)
-        monkeypatch.setattr('src.views.capacity_widget.TimeEntryRepository', mock_repo_class)
+        monkeypatch.setattr('src.repositories.time_entry_repository.TimeEntryRepository', mock_repo_class)
         
         capacity_widget._workers = sample_workers
         
