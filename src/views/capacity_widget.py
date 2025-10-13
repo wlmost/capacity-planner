@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
     QHeaderView, QLabel, QGroupBox, QComboBox, QDateEdit,
-    QTextEdit, QProgressBar, QMessageBox
+    QTextEdit, QProgressBar, QMessageBox, QFileDialog
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QColor
@@ -105,7 +105,18 @@ class CapacityWidget(QWidget):
         self._delete_button.clicked.connect(self._on_delete_clicked)
         self._delete_button.setEnabled(False)
         button_layout.addWidget(self._delete_button)
-
+        
+        button_layout.addStretch()
+        
+        # Export Buttons
+        self._export_csv_button = QPushButton("📊 Export CSV")
+        self._export_csv_button.clicked.connect(self._export_to_csv)
+        button_layout.addWidget(self._export_csv_button)
+        
+        self._export_excel_button = QPushButton("📗 Export Excel")
+        self._export_excel_button.clicked.connect(self._export_to_excel)
+        button_layout.addWidget(self._export_excel_button)
+        
         layout.addLayout(button_layout)
 
         return panel
@@ -543,3 +554,245 @@ class CapacityWidget(QWidget):
         """Zeigt Fehler-Nachricht"""
         self._status_label.setText(f"✗ {message}")
         self._status_label.setStyleSheet("color: red;")
+    
+    def _export_to_csv(self):
+        """Exportiert Kapazitätsdaten als CSV"""
+        if not self._capacities:
+            QMessageBox.warning(
+                self,
+                "Keine Daten",
+                "Es sind keine Kapazitätsdaten zum Exportieren vorhanden."
+            )
+            return
+        
+        # Get filter information for filename and header
+        start_date = self._start_date_filter.date().toPython()
+        end_date = self._end_date_filter.date().toPython()
+        worker_filter = self._worker_filter.currentText()
+        
+        # Datei-Dialog
+        default_filename = f"capacity_report_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export als CSV",
+            default_filename,
+            "CSV Files (*.csv)"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            import csv
+            
+            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile, delimiter=';')
+                
+                # Bericht-Informationen
+                writer.writerow(['Kapazitätsplanung Bericht'])
+                writer.writerow(['Zeitraum', f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"])
+                writer.writerow(['Worker-Filter', worker_filter])
+                writer.writerow(['Export-Datum', datetime.now().strftime('%d.%m.%Y %H:%M:%S')])
+                writer.writerow([])
+                
+                # Header
+                writer.writerow([
+                    'ID', 'Worker', 'Von', 'Bis', 'Geplante Stunden',
+                    'Tage', 'Stunden/Tag', 'Notizen'
+                ])
+                
+                # Daten
+                total_hours = 0.0
+                for capacity in self._capacities:
+                    # Find worker name
+                    worker = next((w for w in self._workers if w.id == capacity.worker_id), None)
+                    worker_name = worker.name if worker else f"Worker #{capacity.worker_id}"
+                    
+                    writer.writerow([
+                        capacity.id,
+                        worker_name,
+                        capacity.start_date.strftime('%d.%m.%Y'),
+                        capacity.end_date.strftime('%d.%m.%Y'),
+                        f"{capacity.planned_hours:.1f}",
+                        capacity.days_count(),
+                        f"{capacity.hours_per_day():.1f}",
+                        capacity.notes or "-"
+                    ])
+                    total_hours += capacity.planned_hours
+                
+                # Zusammenfassung
+                writer.writerow([])
+                writer.writerow(['Zusammenfassung'])
+                writer.writerow(['Anzahl Einträge', len(self._capacities)])
+                writer.writerow(['Gesamt geplante Stunden', f"{total_hours:.1f}"])
+            
+            QMessageBox.information(
+                self,
+                "Export erfolgreich",
+                f"Kapazitätsdaten wurden erfolgreich exportiert:\n\n{file_path}"
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export fehlgeschlagen",
+                f"Fehler beim Exportieren der Daten:\n\n{str(e)}"
+            )
+    
+    def _export_to_excel(self):
+        """Exportiert Kapazitätsdaten als Excel mit Formatierung"""
+        if not self._capacities:
+            QMessageBox.warning(
+                self,
+                "Keine Daten",
+                "Es sind keine Kapazitätsdaten zum Exportieren vorhanden."
+            )
+            return
+        
+        # Get filter information for filename and header
+        start_date = self._start_date_filter.date().toPython()
+        end_date = self._end_date_filter.date().toPython()
+        worker_filter = self._worker_filter.currentText()
+        
+        # Datei-Dialog
+        default_filename = f"capacity_report_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.xlsx"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export als Excel",
+            default_filename,
+            "Excel Files (*.xlsx)"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Kapazitätsplanung"
+            
+            # Titel und Berichtsinformationen
+            title_cell = ws.cell(row=1, column=1, value="Kapazitätsplanung Bericht")
+            title_cell.font = Font(bold=True, size=16, color="FFFFFF")
+            title_cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            ws.merge_cells('A1:H1')
+            
+            ws.cell(row=2, column=1, value="Zeitraum:")
+            ws.cell(row=2, column=2, value=f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}")
+            ws.cell(row=3, column=1, value="Worker-Filter:")
+            ws.cell(row=3, column=2, value=worker_filter)
+            ws.cell(row=4, column=1, value="Export-Datum:")
+            ws.cell(row=4, column=2, value=datetime.now().strftime('%d.%m.%Y %H:%M:%S'))
+            
+            # Header-Zeile (Row 6)
+            headers = ['ID', 'Worker', 'Von', 'Bis', 'Geplante Stunden', 
+                      'Tage', 'Stunden/Tag', 'Notizen']
+            
+            for col_num, header in enumerate(headers, 1):
+                cell = ws.cell(row=6, column=col_num, value=header)
+                cell.font = Font(bold=True, size=12, color="FFFFFF")
+                cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+            
+            # Daten-Zeilen
+            row_num = 7
+            total_hours = 0.0
+            
+            for capacity in self._capacities:
+                # Find worker name
+                worker = next((w for w in self._workers if w.id == capacity.worker_id), None)
+                worker_name = worker.name if worker else f"Worker #{capacity.worker_id}"
+                
+                row_data = [
+                    capacity.id,
+                    worker_name,
+                    capacity.start_date.strftime('%d.%m.%Y'),
+                    capacity.end_date.strftime('%d.%m.%Y'),
+                    capacity.planned_hours,
+                    capacity.days_count(),
+                    capacity.hours_per_day(),
+                    capacity.notes or "-"
+                ]
+                
+                for col_num, value in enumerate(row_data, 1):
+                    cell = ws.cell(row=row_num, column=col_num, value=value)
+                    
+                    # Alignment
+                    if col_num in [1, 5, 6, 7]:  # ID, Hours, Days, Hours/Day - center
+                        cell.alignment = Alignment(horizontal='center')
+                    elif col_num in [3, 4]:  # Dates - center
+                        cell.alignment = Alignment(horizontal='center')
+                    else:  # Worker, Notes - left
+                        cell.alignment = Alignment(horizontal='left')
+                    
+                    # Border
+                    cell.border = Border(
+                        left=Side(style='thin'),
+                        right=Side(style='thin'),
+                        top=Side(style='thin'),
+                        bottom=Side(style='thin')
+                    )
+                    
+                    # Number formatting for hours
+                    if col_num in [5, 7]:  # Planned Hours, Hours/Day
+                        cell.number_format = '0.0'
+                
+                total_hours += capacity.planned_hours
+                row_num += 1
+            
+            # Zusammenfassung (mit Abstand)
+            row_num += 2
+            summary_row = row_num
+            
+            summary_cell = ws.cell(row=summary_row, column=1, value="Zusammenfassung")
+            summary_cell.font = Font(bold=True, size=14, color="FFFFFF")
+            summary_cell.fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+            ws.merge_cells(start_row=summary_row, start_column=1, end_row=summary_row, end_column=2)
+            
+            summary_data = [
+                ('Anzahl Einträge', len(self._capacities)),
+                ('Gesamt geplante Stunden', f"{total_hours:.1f}")
+            ]
+            
+            for i, (label, value) in enumerate(summary_data, 1):
+                row = summary_row + i
+                label_cell = ws.cell(row=row, column=1, value=label)
+                label_cell.font = Font(bold=True)
+                
+                value_cell = ws.cell(row=row, column=2, value=value)
+                value_cell.alignment = Alignment(horizontal='left')
+            
+            # Spaltenbreiten anpassen
+            ws.column_dimensions['A'].width = 8   # ID
+            ws.column_dimensions['B'].width = 20  # Worker
+            ws.column_dimensions['C'].width = 12  # Von
+            ws.column_dimensions['D'].width = 12  # Bis
+            ws.column_dimensions['E'].width = 16  # Geplante Stunden
+            ws.column_dimensions['F'].width = 8   # Tage
+            ws.column_dimensions['G'].width = 14  # Stunden/Tag
+            ws.column_dimensions['H'].width = 30  # Notizen
+            
+            # Speichern
+            wb.save(file_path)
+            
+            QMessageBox.information(
+                self,
+                "Export erfolgreich",
+                f"Kapazitätsdaten wurden erfolgreich exportiert:\n\n{file_path}"
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export fehlgeschlagen",
+                f"Fehler beim Exportieren der Daten:\n\n{str(e)}"
+            )
